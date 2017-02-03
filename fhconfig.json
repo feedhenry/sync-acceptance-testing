@@ -1,0 +1,8 @@
+{
+  "host": "http://localhost:8001",
+  "appid": "testappid",
+  "apptitle": "testapptitle",
+  "projectid": "testprojectid",
+  "appkey": "testappkey",
+  "connectiontag": "testconnectiontag"
+}

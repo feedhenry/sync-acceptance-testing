@@ -1,0 +1,21 @@
+{
+  "name": "sync-acceptance-testing",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "browserify": "^14.0.0",
+    "connect": "^3.5.0",
+    "cors": "^2.8.1",
+    "express": "^4.14.1",
+    "fh-js-sdk": "^2.18.2",
+    "fh-mbaas-api": "^6.1.5",
+    "phantom": "^2.1.21",
+    "serve-static": "^1.11.2"
+  }
+}
