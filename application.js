@@ -28,7 +28,4 @@ app.listen(port, host, function() {
 });
 
 
-module.exports = {
-  fh: mbaasApi,
-  app: app
-};
+module.exports.app = app
