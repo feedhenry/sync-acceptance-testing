@@ -4,16 +4,14 @@ const updateData = { test: 'something else' };
 var dataId;
 
 
-function waitForSyncEvent(expectedEvent, cb) {
+function waitForSyncEvent(expectedEvent) {
   return function() {
     return new Promise(function(resolve, reject) {
       $fh.sync.notify(function(event) {
-        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!! SYNC_EVENT', event.code, JSON.stringify(event));
+        //console.log('!!!!!!!!!!!!!!!!!!!!!!!!!! SYNC_EVENT', event.code, JSON.stringify(event));
         if (event.code === expectedEvent) {
           expect(event.code).toEqual(expectedEvent); // keep jasmine happy with at least 1 expectation
-          console.log('!!!! cb', cb);
-          if (cb) return cb(event, resolve, reject);
-          return resolve();
+          return resolve(event);
         }
       });
     });
@@ -36,98 +34,137 @@ describe('Sync', function() {
   });
 
   it('should list', function() {
-    return new Promise(function(resolve, reject) {
-      $fh.sync.manage(datasetId, {}, {}, {}, function() {
-        $fh.sync.doList(datasetId, resolve, function(code, msg) {
-          return reject(code + ': ' + msg);
-        });
-      });
-    })
-    .then(waitForSyncEvent('sync_complete', function(event, resolve, reject) {
-      // log: !!!!!!!!!!!!!!!!!!!!!!!!!! SYNC_EVENT, sync_started, {"dataset_id":"specDataset","uid":null,"code":"sync_started","message":null}
-      // log: !!!!!!!!!!!!!!!!!!!!!!!!!! SYNC_EVENT, sync_complete, {"dataset_id":"specDataset","uid":"a2a57278171a23df4441b60238f7802a10e95970","code":"sync_complete","message":"online"}
+    return manage()
+    .then(waitForSyncEvent('sync_started'))
+    .then(function verifySyncStarted(event) {
       expect(event.dataset_id).toEqual(datasetId);
-      return resolve();
-    }));
+      expect(event.message).toBeNull();
+    })
+    .then(waitForSyncEvent('sync_complete'))
+    .then(function verifySyncCompleted(event) {
+      expect(event.dataset_id).toEqual(datasetId);
+      expect(event.message).toEqual('online');
+    });
   });
 
   it('should create', function() {
-    return new Promise(function(resolve, reject) {
-      $fh.sync.manage(datasetId, {}, {}, {}, function() {
-        $fh.sync.doCreate(datasetId, testData, function(res) {
-          expect(res.action).toEqual('create');
-          expect(res.post).toEqual(testData);
-          return resolve();
-        }, function(code, msg) {
-          reject(code + ': ' + msg);
-        });
-      });
+    // set up a notifier that only handles `local_update_applied' events as these might
+    // occur before the 'then' part of the following promise being called.
+    $fh.sync.notify(function(event) {
+      if (event.code === 'local_update_applied') {
+        expect(event.dataset_id).toEqual(datasetId);
+        expect(event.message).toMatch(/(load|create)/);
+      }
+    });
+    return manage()
+    .then(doCreate)
+    .then(function (res) {
+      expect(res.action).toEqual('create');
+      expect(res.post).toEqual(testData);
     })
-    // .then(waitForSyncEvent('local_update_applied', function(event, resolve, reject) {
-    //   // log: !!!!!!!!!!!!!!!!!!!!!!!!!! SYNC_EVENT, local_update_applied, {"dataset_id":"specDataset","uid":null,"code":"local_update_applied","message":"create"}
-    //   expect(event.dataset_id).toEqual(datasetId);
-    //   expect(event.message).toEqual('create');
-    //   return resolve();
-    // }))
-    // .then(waitForSyncEvent('remote_update_applied', function(event, resolve, reject) {
-    //   // log: !!!!!!!!!!!!!!!!!!!!!!!!!! SYNC_EVENT, remote_update_applied, {"dataset_id":"specDataset","uid":"589a5c0412c8015f559c1c90","code":"remote_update_applied","message":{"cuid":"B0CF358A9B46455184B26F2FD4DBA1AD","type":"applied","action":"create","hash":"80597a7628eb1d4ee196609c743ea6e759d8cbc6","uid":"589a5c0412c8015f559c1c90","msg":"''"}}
-    //   expect(event.dataset_id).toEqual(datasetId);
-    //   expect(event.message.type).toEqual('applied');
-    //   expect(event.message.action).toEqual('create');
-    //   return resolve();
-    // }));
+    .then(waitForSyncEvent('remote_update_applied'))
+    .then(function verifyUpdateApplied(event) {
+       expect(event.dataset_id).toEqual(datasetId);
+       expect(event.message.type).toEqual('applied');
+       expect(event.message.action).toEqual('create');
+     });
   });
 
-  // it('should read', function() {
-  //   return new Promise(function(resolve, reject) {
-  //     $fh.sync.doRead(datasetId, dataId, function(data) {
-  //       expect(data.data).toEqual(testData);
-  //       resolve();
-  //     }, function(code, msg) {
-  //       reject(code + ': ' + msg);
-  //     });
-  //   });
-  // });
+  it('should read', function() {
+    return manage()
+    .then(doCreate)
+    .then(doRead())
+    .then(function (data) {
+      expect(data.data).toEqual(testData);
+      expect(data.hash).not.toBeNull();
+    })
+    .catch(function (err) {
+      expect(err).toBeNull();
+    });
+  });
 
-  // it('should fail reading unknown uid', function() {
-  //   return new Promise(function(resolve, reject) {
-  //     $fh.sync.doRead(datasetId, 'nonsence', function(data) {
-  //       reject(data);
-  //     }, function(code) {
-  //       expect(code).toBe('unknown_uid');
-  //       resolve();
-  //     });
-  //   });
-  // });
+  it('should fail when reading unknown uid', function() {
+    return manage()
+    .then(doCreate)
+    .then(doRead('bogus_uid'))
+    .catch(function (err) {
+      expect(err).toEqual('unknown_uid');
+    });
+  });
 
-  // it('should update', function() {
-  //   return new Promise(function(resolve, reject) {
-  //     $fh.sync.doUpdate(datasetId, dataId, updateData, function() {
-  //       $fh.sync.doRead(datasetId, dataId, function(data) {
-  //         expect(data.data).toEqual(updateData);
-  //         resolve();
-  //       }, function(code, msg) {
-  //         reject(code + ': ' + msg);
-  //       });
-  //     }, function(code, msg) {
-  //       reject(code + ': ' + msg);
-  //     });
-  //   });
-  // });
+  it('should update', function() {
+    return manage()
+    .then(doCreate)
+    .then(doUpdate())
+    .then(doRead())
+    .then(function verifyUpdate(data) {
+      expect(data.data).toEqual(updateData);
+    })
+    .catch(function (err) {
+      expect(err).toBeNull();
+    });
+  });
 
-  // it('should delete', function() {
-  //   return new Promise(function(resolve, reject) {
-  //     $fh.sync.doDelete(datasetId, dataId, function() {
-  //       $fh.sync.doList(datasetId, function(res) {
-  //         expect(res).toEqual({});
-  //         resolve();
-  //       }, function(code, msg) {
-  //         reject(code + ': ' + msg);
-  //       });
-  //     }, function(code, msg) {
-  //       reject(code + ': ' + msg);
-  //     });
-  //   });
-  // });
+  it('should delete', function() {
+    return manage()
+    .then(doCreate)
+    .then(doDelete())
+    .then(doRead())
+    .catch(function (err) {
+      expect(err).toEqual('unknown_uid');
+    });
+  });
 
 });
+
+function manage() {
+  return new Promise(function (resolve, reject) {
+    $fh.sync.manage(datasetId, {}, {}, {}, function() {
+      return resolve();
+    });
+  });
+}
+
+function doCreate() {
+  return new Promise(function(resolve, reject) {
+    $fh.sync.doCreate(datasetId, testData, function(res) {
+      return resolve(res);
+    }, function (err) {
+      reject(err);
+    });
+  });
+}
+
+function doDelete() {
+  return function(res) {
+    return new Promise(function(resolve, reject) {
+      $fh.sync.doDelete(datasetId, res.uid, function() {
+        return resolve(res);
+      });
+    });
+  };
+}
+
+function doRead(uid) {
+  return function(res) {
+    return new Promise(function(resolve, reject) {
+      $fh.sync.doRead(datasetId, uid || res.uid, function(data) {
+        return resolve(data);
+      }, function failure(err) {
+        reject(err);
+      });
+    });
+  };
+}
+
+function doUpdate() {
+  return function(res) {
+    return new Promise(function(resolve, reject) {
+      $fh.sync.doUpdate(datasetId, res.uid, updateData, function() {
+        return resolve(res);
+      }, function (err) {
+        reject(err);
+      });
+    });
+  };
+}
