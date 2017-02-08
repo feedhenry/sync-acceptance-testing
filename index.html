@@ -19,14 +19,21 @@
   <script src=".grunt/grunt-contrib-jasmine/json2.js"></script>
   
   <script src=".grunt/grunt-contrib-jasmine/boot.js"></script>
+
+  <script src="node_modules/babel-polyfill/dist/polyfill.js"></script>
+
+  <script src="node_modules/jasmine-promises/dist/jasmine-promises.js"></script>
   
+
   <script src="main.js"></script>
 
   <script>
-  jasmine.DEFAULT_TIMEOUT_INTERVAL = 60000;
+  jasmine.DEFAULT_TIMEOUT_INTERVAL = 15000;
   </script>
+
   
-  <script src="spec/fhSyncCreateSpec.js"></script>
+  <!--/*<script src="spec/fhSyncCreateSpec.js"></script>*/-->
+  <script src="spec/syncSpec.js"></script>
   
   <script src=".grunt/grunt-contrib-jasmine/reporter.js"></script>
   
