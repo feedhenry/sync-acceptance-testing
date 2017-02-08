@@ -52,6 +52,14 @@ describe('Sync', function() {
   });
 
   it('should create', function() {
+    // set up a notifier that only handles `local_update_applied' events as these might
+    // occur before the then part of the following promise is called.
+    $fh.sync.notify(function(event) {
+      if (event.code === 'local_update_applied') {
+        expect(event.dataset_id).toEqual(datasetId);
+        expect(event.message).toMatch(/(load|create)/);
+      }
+    });
     return new Promise(function(resolve, reject) {
       $fh.sync.manage(datasetId, {}, {}, {}, function() {
         $fh.sync.doCreate(datasetId, testData, function(res) {
@@ -63,19 +71,12 @@ describe('Sync', function() {
         });
       });
     })
-    // .then(waitForSyncEvent('local_update_applied', function(event, resolve, reject) {
-    //   // log: !!!!!!!!!!!!!!!!!!!!!!!!!! SYNC_EVENT, local_update_applied, {"dataset_id":"specDataset","uid":null,"code":"local_update_applied","message":"create"}
-    //   expect(event.dataset_id).toEqual(datasetId);
-    //   expect(event.message).toEqual('create');
-    //   return resolve();
-    // }))
-    // .then(waitForSyncEvent('remote_update_applied', function(event, resolve, reject) {
-    //   // log: !!!!!!!!!!!!!!!!!!!!!!!!!! SYNC_EVENT, remote_update_applied, {"dataset_id":"specDataset","uid":"589a5c0412c8015f559c1c90","code":"remote_update_applied","message":{"cuid":"B0CF358A9B46455184B26F2FD4DBA1AD","type":"applied","action":"create","hash":"80597a7628eb1d4ee196609c743ea6e759d8cbc6","uid":"589a5c0412c8015f559c1c90","msg":"''"}}
-    //   expect(event.dataset_id).toEqual(datasetId);
-    //   expect(event.message.type).toEqual('applied');
-    //   expect(event.message.action).toEqual('create');
-    //   return resolve();
-    // }));
+    .then(waitForSyncEvent('remote_update_applied', function(event, resolve, reject) {
+       expect(event.dataset_id).toEqual(datasetId);
+       expect(event.message.type).toEqual('applied');
+       expect(event.message.action).toEqual('create');
+       return resolve();
+     }));
   });
 
   // it('should read', function() {
