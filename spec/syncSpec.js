@@ -143,19 +143,33 @@ describe('Sync', function() {
     });
   });
 
-  // it('should delete', function() {
-  //   return new Promise(function(resolve, reject) {
-  //     $fh.sync.doDelete(datasetId, dataId, function() {
-  //       $fh.sync.doList(datasetId, function(res) {
-  //         expect(res).toEqual({});
-  //         resolve();
-  //       }, function(code, msg) {
-  //         reject(code + ': ' + msg);
-  //       });
-  //     }, function(code, msg) {
-  //       reject(code + ': ' + msg);
-  //     });
-  //   });
-  // });
+  it('should delete', function() {
+    return new Promise(function manage(resolve, reject) {
+      $fh.sync.manage(datasetId, {}, {}, {}, function() {
+        return resolve();
+      })
+    }).then(function doCreate() {
+      return new Promise(function(resolve, reject) {
+        $fh.sync.doCreate(datasetId, testData, function(res) {
+          return resolve(res);
+        });
+      });
+    }).then(function doDelete(res) {
+      return new Promise(function(resolve, reject) {
+        $fh.sync.doDelete(datasetId, res.uid, function() {
+          return resolve(res);
+        });
+      });
+    }).then(function doRead(res) {
+      return new Promise(function(resolve, reject) {
+        $fh.sync.doRead(datasetId, res.uid, function(data) {
+          return reject('Item with uid ' + res.uid + '  should have been deleted');
+        }, function failure(err) {
+           expect(err).toEqual('unknown_uid');
+           resolve();
+        });
+      });
+    });
+  });
 
 });
