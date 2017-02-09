@@ -43,6 +43,11 @@ describe('Sync', function() {
         });
       });
     })
+    .then(waitForSyncEvent('sync_started', function(event, resolve, reject) {
+      expect(event.dataset_id).toEqual(datasetId);
+      expect(event.message).toBeNull();
+      return resolve();
+    }))
     .then(waitForSyncEvent('sync_complete', function(event, resolve, reject) {
       // log: !!!!!!!!!!!!!!!!!!!!!!!!!! SYNC_EVENT, sync_started, {"dataset_id":"specDataset","uid":null,"code":"sync_started","message":null}
       // log: !!!!!!!!!!!!!!!!!!!!!!!!!! SYNC_EVENT, sync_complete, {"dataset_id":"specDataset","uid":"a2a57278171a23df4441b60238f7802a10e95970","code":"sync_complete","message":"online"}
