@@ -49,6 +49,7 @@ describe('Sync', function() {
     }))
     .then(waitForSyncEvent('sync_complete', function(event, resolve, reject) {
       expect(event.dataset_id).toEqual(datasetId);
+      expect(event.message).toEqual('online');
       return resolve();
     }));
   });
