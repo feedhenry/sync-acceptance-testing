@@ -114,21 +114,32 @@ describe('Sync', function() {
   });
 
   it('should update', function() {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function manage(resolve, reject) {
       $fh.sync.manage(datasetId, {}, {}, {}, function() {
+        return resolve();
+      })
+    }).then(function doCreate() {
+      return new Promise(function(resolve, reject) {
         $fh.sync.doCreate(datasetId, testData, function(res) {
-          $fh.sync.doUpdate(datasetId, res.uid, updateData, function() {
-            $fh.sync.doRead(datasetId, res.uid, function(data) {
-              expect(data.data).toEqual(updateData);
-              return resolve();
-            }, function (err) {
-               reject(err);
-            });
-          }, function (err) {
-               reject(err);
-          });
+          return resolve(res);
         });
       });
+    }).then(function doUpdate(res) {
+      return new Promise(function(resolve, reject) {
+        $fh.sync.doUpdate(datasetId, res.uid, updateData, function() {
+          return resolve(res);
+        });
+      });
+    }).then(function doRead(res) {
+      return new Promise(function(resolve, reject) {
+        $fh.sync.doRead(datasetId, res.uid, function(data) {
+          return resolve(data);
+        });
+      });
+    }).then(function verifyUpdate(data) {
+      expect(data.data).toEqual(updateData);
+    }, function catchErrors(err) {
+      expect(err).toBeNull();
     });
   });
 
