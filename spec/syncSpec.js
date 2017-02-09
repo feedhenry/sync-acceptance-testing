@@ -113,20 +113,24 @@ describe('Sync', function() {
     });
   });
 
-  // it('should update', function() {
-  //   return new Promise(function(resolve, reject) {
-  //     $fh.sync.doUpdate(datasetId, dataId, updateData, function() {
-  //       $fh.sync.doRead(datasetId, dataId, function(data) {
-  //         expect(data.data).toEqual(updateData);
-  //         resolve();
-  //       }, function(code, msg) {
-  //         reject(code + ': ' + msg);
-  //       });
-  //     }, function(code, msg) {
-  //       reject(code + ': ' + msg);
-  //     });
-  //   });
-  // });
+  it('should update', function() {
+    return new Promise(function(resolve, reject) {
+      $fh.sync.manage(datasetId, {}, {}, {}, function() {
+        $fh.sync.doCreate(datasetId, testData, function(res) {
+          $fh.sync.doUpdate(datasetId, res.uid, updateData, function() {
+            $fh.sync.doRead(datasetId, res.uid, function(data) {
+              expect(data.data).toEqual(updateData);
+              return resolve();
+            }, function (err) {
+               reject(err);
+            });
+          }, function (err) {
+               reject(err);
+          });
+        });
+      });
+    });
+  });
 
   // it('should delete', function() {
   //   return new Promise(function(resolve, reject) {
