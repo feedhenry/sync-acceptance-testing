@@ -8,10 +8,9 @@ function waitForSyncEvent(expectedEvent, cb) {
   return function() {
     return new Promise(function(resolve, reject) {
       $fh.sync.notify(function(event) {
-        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!! SYNC_EVENT', event.code, JSON.stringify(event));
+        //console.log('!!!!!!!!!!!!!!!!!!!!!!!!!! SYNC_EVENT', event.code, JSON.stringify(event));
         if (event.code === expectedEvent) {
           expect(event.code).toEqual(expectedEvent); // keep jasmine happy with at least 1 expectation
-          console.log('!!!! cb', cb);
           if (cb) return cb(event, resolve, reject);
           return resolve();
         }
@@ -49,8 +48,6 @@ describe('Sync', function() {
       return resolve();
     }))
     .then(waitForSyncEvent('sync_complete', function(event, resolve, reject) {
-      // log: !!!!!!!!!!!!!!!!!!!!!!!!!! SYNC_EVENT, sync_started, {"dataset_id":"specDataset","uid":null,"code":"sync_started","message":null}
-      // log: !!!!!!!!!!!!!!!!!!!!!!!!!! SYNC_EVENT, sync_complete, {"dataset_id":"specDataset","uid":"a2a57278171a23df4441b60238f7802a10e95970","code":"sync_complete","message":"online"}
       expect(event.dataset_id).toEqual(datasetId);
       return resolve();
     }));
@@ -58,7 +55,7 @@ describe('Sync', function() {
 
   it('should create', function() {
     // set up a notifier that only handles `local_update_applied' events as these might
-    // occur before the then part of the following promise is called.
+    // occur before the 'then' part of the following promise being called.
     $fh.sync.notify(function(event) {
       if (event.code === 'local_update_applied') {
         expect(event.dataset_id).toEqual(datasetId);
