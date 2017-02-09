@@ -82,27 +82,36 @@ describe('Sync', function() {
      }));
   });
 
-  // it('should read', function() {
-  //   return new Promise(function(resolve, reject) {
-  //     $fh.sync.doRead(datasetId, dataId, function(data) {
-  //       expect(data.data).toEqual(testData);
-  //       resolve();
-  //     }, function(code, msg) {
-  //       reject(code + ': ' + msg);
-  //     });
-  //   });
-  // });
+  it('should read', function() {
+    return new Promise(function(resolve, reject) {
+      $fh.sync.manage(datasetId, {}, {}, {}, function() {
+        $fh.sync.doCreate(datasetId, testData, function(res) {
+          $fh.sync.doRead(datasetId, res.uid, function(data) {
+            expect(data.data).toEqual(testData);
+            expect(data.hash).not.toBeNull();
+            return resolve();
+          }, function(msg) {
+             reject(code + ': ' + msg);
+          });
+        });
+      });
+    });
+  });
 
-  // it('should fail reading unknown uid', function() {
-  //   return new Promise(function(resolve, reject) {
-  //     $fh.sync.doRead(datasetId, 'nonsence', function(data) {
-  //       reject(data);
-  //     }, function(code) {
-  //       expect(code).toBe('unknown_uid');
-  //       resolve();
-  //     });
-  //   });
-  // });
+  it('should fail when reading unknown uid', function() {
+    return new Promise(function(resolve, reject) {
+      $fh.sync.manage(datasetId, {}, {}, {}, function() {
+        $fh.sync.doCreate(datasetId, testData, function(res) {
+          $fh.sync.doRead(datasetId, 'bogus uid', function(data) {
+            return reject('doRead should have returned error unknown_uid');
+          }, function(err) {
+            expect(err).toEqual('unknown_uid');
+            resolve();
+          });
+        });
+      });
+    });
+  });
 
   // it('should update', function() {
   //   return new Promise(function(resolve, reject) {
