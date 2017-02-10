@@ -35,13 +35,7 @@ describe('Sync', function() {
   });
 
   it('should list', function() {
-    return new Promise(function(resolve, reject) {
-      $fh.sync.manage(datasetId, {}, {}, {}, function() {
-        $fh.sync.doList(datasetId, resolve, function(code, msg) {
-          return reject(code + ': ' + msg);
-        });
-      });
-    })
+    return manage()
     .then(waitForSyncEvent('sync_started', function(event, resolve, reject) {
       expect(event.dataset_id).toEqual(datasetId);
       expect(event.message).toBeNull();
@@ -63,16 +57,11 @@ describe('Sync', function() {
         expect(event.message).toMatch(/(load|create)/);
       }
     });
-    return new Promise(function(resolve, reject) {
-      $fh.sync.manage(datasetId, {}, {}, {}, function() {
-        $fh.sync.doCreate(datasetId, testData, function(res) {
-          expect(res.action).toEqual('create');
-          expect(res.post).toEqual(testData);
-          return resolve();
-        }, function(code, msg) {
-          reject(code + ': ' + msg);
-        });
-      });
+    return manage()
+    .then(doCreate)
+    .then(function (res) {
+      expect(res.action).toEqual('create');
+      expect(res.post).toEqual(testData);
     })
     .then(waitForSyncEvent('remote_update_applied', function(event, resolve, reject) {
        expect(event.dataset_id).toEqual(datasetId);
