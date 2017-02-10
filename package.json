@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "async": "^2.1.4",
     "browserify": "^14.0.0",
     "browserify-shim": "^3.8.13",
     "connect": "^3.5.0",
