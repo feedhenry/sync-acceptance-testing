@@ -4,15 +4,14 @@ const updateData = { test: 'something else' };
 var dataId;
 
 
-function waitForSyncEvent(expectedEvent, cb) {
+function waitForSyncEvent(expectedEvent) {
   return function() {
     return new Promise(function(resolve, reject) {
       $fh.sync.notify(function(event) {
         //console.log('!!!!!!!!!!!!!!!!!!!!!!!!!! SYNC_EVENT', event.code, JSON.stringify(event));
         if (event.code === expectedEvent) {
           expect(event.code).toEqual(expectedEvent); // keep jasmine happy with at least 1 expectation
-          if (cb) return cb(event, resolve, reject);
-          return resolve();
+          return resolve(event);
         }
       });
     });
@@ -36,16 +35,16 @@ describe('Sync', function() {
 
   it('should list', function() {
     return manage()
-    .then(waitForSyncEvent('sync_started', function(event, resolve, reject) {
+    .then(waitForSyncEvent('sync_started'))
+    .then(function verifySyncStarted(event) {
       expect(event.dataset_id).toEqual(datasetId);
       expect(event.message).toBeNull();
-      return resolve();
-    }))
-    .then(waitForSyncEvent('sync_complete', function(event, resolve, reject) {
+    })
+    .then(waitForSyncEvent('sync_complete'))
+    .then(function verifySyncCompleted(event) {
       expect(event.dataset_id).toEqual(datasetId);
       expect(event.message).toEqual('online');
-      return resolve();
-    }));
+    });
   });
 
   it('should create', function() {
@@ -63,12 +62,12 @@ describe('Sync', function() {
       expect(res.action).toEqual('create');
       expect(res.post).toEqual(testData);
     })
-    .then(waitForSyncEvent('remote_update_applied', function(event, resolve, reject) {
+    .then(waitForSyncEvent('remote_update_applied'))
+    .then(function verifyUpdateApplied(event) {
        expect(event.dataset_id).toEqual(datasetId);
        expect(event.message.type).toEqual('applied');
        expect(event.message.action).toEqual('create');
-       return resolve();
-     }));
+     });
   });
 
   it('should read', function() {
