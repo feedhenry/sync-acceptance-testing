@@ -130,61 +130,15 @@ describe('Sync', function() {
   });
 
   it('should update', function() {
-    return new Promise(function manage(resolve, reject) {
-      $fh.sync.manage(datasetId, {}, {}, {}, function() {
-        return resolve();
-      })
-    }).then(function doCreate() {
-      return new Promise(function(resolve, reject) {
-        $fh.sync.doCreate(datasetId, testData, function(res) {
-          return resolve(res);
-        });
-      });
-    }).then(function doUpdate(res) {
-      return new Promise(function(resolve, reject) {
-        $fh.sync.doUpdate(datasetId, res.uid, updateData, function() {
-          return resolve(res);
-        });
-      });
-    }).then(function doRead(res) {
-      return new Promise(function(resolve, reject) {
-        $fh.sync.doRead(datasetId, res.uid, function(data) {
-          return resolve(data);
-        });
-      });
-    }).then(function verifyUpdate(data) {
+    return manage()
+    .then(doCreate)
+    .then(doUpdate())
+    .then(doRead())
+    .then(function verifyUpdate(data) {
       expect(data.data).toEqual(updateData);
-    }, function catchErrors(err) {
+    })
+    .catch(function (err) {
       expect(err).toBeNull();
-    });
-  });
-
-  it('should delete', function() {
-    return new Promise(function manage(resolve, reject) {
-      $fh.sync.manage(datasetId, {}, {}, {}, function() {
-        return resolve();
-      })
-    }).then(function doCreate() {
-      return new Promise(function(resolve, reject) {
-        $fh.sync.doCreate(datasetId, testData, function(res) {
-          return resolve(res);
-        });
-      });
-    }).then(function doDelete(res) {
-      return new Promise(function(resolve, reject) {
-        $fh.sync.doDelete(datasetId, res.uid, function() {
-          return resolve(res);
-        });
-      });
-    }).then(function doRead(res) {
-      return new Promise(function(resolve, reject) {
-        $fh.sync.doRead(datasetId, res.uid, function(data) {
-          return reject('Item with uid ' + res.uid + '  should have been deleted');
-        }, function failure(err) {
-           expect(err).toEqual('unknown_uid');
-           resolve();
-        });
-      });
     });
   });
 
@@ -195,7 +149,6 @@ describe('Sync', function() {
     .then(doRead())
     .catch(function (err) {
       expect(err).toEqual('unknown_uid');
-      console.log("Catch...", err);
     });
   });
 
@@ -235,7 +188,19 @@ function doRead() {
       $fh.sync.doRead(datasetId, res.uid, function(data) {
         return resolve(data);
       }, function failure(err) {
-         reject(err);
+        reject(err);
+      });
+    });
+  };
+}
+
+function doUpdate() {
+  return function(res) {
+    return new Promise(function(resolve, reject) {
+      $fh.sync.doUpdate(datasetId, res.uid, updateData, function() {
+        return resolve(res);
+      }, function (err) {
+        reject(err);
       });
     });
   };
