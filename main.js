@@ -12390,7 +12390,6 @@ var self = {
         failure("unknown_uid");
       } else {
         // Return a copy of the record so updates will not automatically make it back into the dataset
-        console.log(JSON.stringify(rec));
         var res = JSON.parse(JSON.stringify(rec));
         success(res);
       }
@@ -13601,6 +13600,5 @@ module.exports = {
 },{"./appProps":29,"./constants":31,"./data":33,"./events":35,"./fhparams":36,"./hosts":38,"./initializer":39,"./logger":42}]},{},[19])
 (19)
 });
-
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{}]},{},[1]);

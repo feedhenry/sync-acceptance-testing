@@ -28,6 +28,13 @@ describe('Sync', function() {
     $fh.sync.stopSync(datasetId, done, done.fail);
   });
 
+  afterAll(function() {
+    return new Promise(function(resolve, reject) {
+      // We don't want to fail the test if the data isn't removed so resolve.
+      $fh.cloud({ path: '/dataset/' + datasetId + '/reset' }, resolve, resolve);
+    });
+  })
+
   it('should manage a dataset', function() {
     $fh.sync.manage(datasetId);
     return waitForSyncEvent('sync_complete')();
