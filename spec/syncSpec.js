@@ -83,31 +83,47 @@ describe('Sync', function() {
   });
 
   it('should read', function() {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function manage(resolve, reject) {
       $fh.sync.manage(datasetId, {}, {}, {}, function() {
+        return resolve();
+      })
+    }).then(function doCreate() {
+      return new Promise(function(resolve, reject) {
         $fh.sync.doCreate(datasetId, testData, function(res) {
-          $fh.sync.doRead(datasetId, res.uid, function(data) {
+          return resolve(res);
+        });
+      });
+    }).then(function doRead(res) {
+      return new Promise(function(resolve, reject) {
+        $fh.sync.doRead(datasetId, res.uid, function(data) {
             expect(data.data).toEqual(testData);
             expect(data.hash).not.toBeNull();
             return resolve();
-          }, function(msg) {
-             reject(code + ': ' + msg);
-          });
+        }, function failure(err) {
+           reject(err);
         });
       });
     });
   });
 
   it('should fail when reading unknown uid', function() {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function manage(resolve, reject) {
       $fh.sync.manage(datasetId, {}, {}, {}, function() {
+        return resolve();
+      })
+    }).then(function doCreate() {
+      return new Promise(function(resolve, reject) {
         $fh.sync.doCreate(datasetId, testData, function(res) {
-          $fh.sync.doRead(datasetId, 'bogus uid', function(data) {
-            return reject('doRead should have returned error unknown_uid');
-          }, function(err) {
-            expect(err).toEqual('unknown_uid');
-            resolve();
-          });
+          return resolve(res);
+        });
+      });
+    }).then(function doRead(res) {
+      return new Promise(function(resolve, reject) {
+        $fh.sync.doRead(datasetId, 'bogus uid', function(data) {
+          return reject('Item with uid ' + res.uid + '  should have been deleted');
+        }, function failure(err) {
+           expect(err).toEqual('unknown_uid');
+           resolve();
         });
       });
     });
