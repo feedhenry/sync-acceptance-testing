@@ -188,4 +188,55 @@ describe('Sync', function() {
     });
   });
 
+  it('should delete', function() {
+    return manage()
+    .then(doCreate)
+    .then(doDelete())
+    .then(doRead())
+    .catch(function (err) {
+      expect(err).toEqual('unknown_uid');
+      console.log("Catch...", err);
+    });
+  });
+
 });
+
+function manage() {
+  return new Promise(function (resolve, reject) {
+    $fh.sync.manage(datasetId, {}, {}, {}, function() {
+      return resolve();
+    });
+  });
+}
+
+function doCreate() {
+  return new Promise(function(resolve, reject) {
+    $fh.sync.doCreate(datasetId, testData, function(res) {
+      return resolve(res);
+    }, function (err) {
+      reject(err);
+    });
+  });
+}
+
+function doDelete() {
+  return function(res) {
+    return new Promise(function(resolve, reject) {
+      $fh.sync.doDelete(datasetId, res.uid, function() {
+        return resolve(res);
+      });
+    });
+  };
+}
+
+function doRead() {
+  return function(res) {
+    return new Promise(function(resolve, reject) {
+      $fh.sync.doRead(datasetId, res.uid, function(data) {
+        return resolve(data);
+      }, function failure(err) {
+         reject(err);
+      });
+    });
+  };
+}
