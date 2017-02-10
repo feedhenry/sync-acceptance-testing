@@ -83,49 +83,24 @@ describe('Sync', function() {
   });
 
   it('should read', function() {
-    return new Promise(function manage(resolve, reject) {
-      $fh.sync.manage(datasetId, {}, {}, {}, function() {
-        return resolve();
-      })
-    }).then(function doCreate() {
-      return new Promise(function(resolve, reject) {
-        $fh.sync.doCreate(datasetId, testData, function(res) {
-          return resolve(res);
-        });
-      });
-    }).then(function doRead(res) {
-      return new Promise(function(resolve, reject) {
-        $fh.sync.doRead(datasetId, res.uid, function(data) {
-            expect(data.data).toEqual(testData);
-            expect(data.hash).not.toBeNull();
-            return resolve();
-        }, function failure(err) {
-           reject(err);
-        });
-      });
+    return manage()
+    .then(doCreate)
+    .then(doRead())
+    .then(function (data) {
+      expect(data.data).toEqual(testData);
+      expect(data.hash).not.toBeNull();
+    })
+    .catch(function (err) {
+      expect(err).toBeNull();
     });
   });
 
   it('should fail when reading unknown uid', function() {
-    return new Promise(function manage(resolve, reject) {
-      $fh.sync.manage(datasetId, {}, {}, {}, function() {
-        return resolve();
-      })
-    }).then(function doCreate() {
-      return new Promise(function(resolve, reject) {
-        $fh.sync.doCreate(datasetId, testData, function(res) {
-          return resolve(res);
-        });
-      });
-    }).then(function doRead(res) {
-      return new Promise(function(resolve, reject) {
-        $fh.sync.doRead(datasetId, 'bogus uid', function(data) {
-          return reject('Item with uid ' + res.uid + '  should have been deleted');
-        }, function failure(err) {
-           expect(err).toEqual('unknown_uid');
-           resolve();
-        });
-      });
+    return manage()
+    .then(doCreate)
+    .then(doRead('bogus_uid'))
+    .catch(function (err) {
+      expect(err).toEqual('unknown_uid');
     });
   });
 
@@ -182,10 +157,10 @@ function doDelete() {
   };
 }
 
-function doRead() {
+function doRead(uid) {
   return function(res) {
     return new Promise(function(resolve, reject) {
-      $fh.sync.doRead(datasetId, res.uid, function(data) {
+      $fh.sync.doRead(datasetId, uid || res.uid, function(data) {
         return resolve(data);
       }, function failure(err) {
         reject(err);
