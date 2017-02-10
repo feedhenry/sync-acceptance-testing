@@ -3,19 +3,10 @@ var $fh = require('fh-js-sdk');
 
 
 console.log('TEST', $fh.sync);
-        console.log('window.location.href', window.location.href);
+console.log('window.location.href', window.location.href);
 
 var datasetId = 'myShoppingList';
 
-
-$fh.sync.init({
-  "do_console_log" : true,
-  "storage_strategy" : "dom"
-});
-
-$fh.sync.notify(function(notification) {
-  console.log('notify', notification);
-});
 },{"fh-js-sdk":2}],2:[function(require,module,exports){
 (function (global){
 !function(e){if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.feedhenry=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
@@ -12399,6 +12390,7 @@ var self = {
         failure("unknown_uid");
       } else {
         // Return a copy of the record so updates will not automatically make it back into the dataset
+        console.log(JSON.stringify(rec));
         var res = JSON.parse(JSON.stringify(rec));
         success(res);
       }
@@ -13609,5 +13601,6 @@ module.exports = {
 },{"./appProps":29,"./constants":31,"./data":33,"./events":35,"./fhparams":36,"./hosts":38,"./initializer":39,"./logger":42}]},{},[19])
 (19)
 });
+
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{}]},{},[1]);
