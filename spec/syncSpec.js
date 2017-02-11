@@ -11,7 +11,7 @@ function waitForSyncEvent(expectedEvent) {
         //console.log('!!!!!!!!!!!!!!!!!!!!!!!!!! SYNC_EVENT', event.code, JSON.stringify(event));
         if (event.code === expectedEvent) {
           expect(event.code).toEqual(expectedEvent); // keep jasmine happy with at least 1 expectation
-          return resolve(event);
+          resolve(event);
         }
       });
     });
@@ -127,7 +127,7 @@ describe('Sync', function() {
 function manage() {
   return new Promise(function (resolve, reject) {
     $fh.sync.manage(datasetId, {}, {}, {}, function() {
-      return resolve();
+      resolve();
     });
   });
 }
@@ -135,7 +135,7 @@ function manage() {
 function doCreate() {
   return new Promise(function(resolve, reject) {
     $fh.sync.doCreate(datasetId, testData, function(res) {
-      return resolve(res);
+      resolve(res);
     }, function (err) {
       reject(err);
     });
@@ -146,7 +146,7 @@ function doDelete() {
   return function(res) {
     return new Promise(function(resolve, reject) {
       $fh.sync.doDelete(datasetId, res.uid, function() {
-        return resolve(res);
+        resolve(res);
       });
     });
   };
@@ -156,7 +156,7 @@ function doRead(uid) {
   return function(res) {
     return new Promise(function(resolve, reject) {
       $fh.sync.doRead(datasetId, uid || res.uid, function(data) {
-        return resolve(data);
+        resolve(data);
       }, function failure(err) {
         reject(err);
       });
@@ -168,7 +168,7 @@ function doUpdate() {
   return function(res) {
     return new Promise(function(resolve, reject) {
       $fh.sync.doUpdate(datasetId, res.uid, updateData, function() {
-        return resolve(res);
+        resolve(res);
       }, function (err) {
         reject(err);
       });
