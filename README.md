@@ -1,16 +1,22 @@
+[![Build Status](https://travis-ci.org/feedhenry/sync-acceptance-testing.svg?branch=master)](https://travis-ci.org/feedhenry/sync-acceptance-testing)
+
 # Sync Acceptance Testing
+End to end acceptance tests for the sync framework enabled.
 
-Uses phantomjs to run the fh-js-sdk, and jasmine for the test runner
+Uses [phantomjs](http://phantomjs.org/) to run the [fh-js-sdk](https://github.com/feedhenry/fh-js-sdk), and [jasmine](https://github.com/gruntjs/grunt-contrib-jasmine) for the test runner.
 
-The client runs on port 9002, and serves an index.html (which includes a browserfied main.js from app.js).
-The server runs on port 8001, and is just a plain application.js file.
-
+## Prerequisites
+Ensure mongod is running.
 
 ## Usage
 
-Ensure mongod is running
-
 ```
-npm i
+npm install
 npm test
 ```
+
+## app.js
+This file is [browserified](http://browserify.org/) into main.js which is then included
+in `index.html` which is the Jasmine Spec Runner. The client runs on port 9002.
+
+The server runs on port 8001, and is just a plain application.js file.
