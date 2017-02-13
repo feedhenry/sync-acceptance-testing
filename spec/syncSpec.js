@@ -128,9 +128,10 @@ describe('Sync', function() {
     .then(doCreate)
     .then(waitForSyncEvent('remote_update_applied'))
     .then(function verifyUpdateApplied(event) {
-      expect(event.message.uid).not.toBeNull();
+      // We need to store this for updating in MongoDB in the next step.
       recordId = event.message.uid;
-      return event.message.uid;
+      expect(recordId).not.toBeNull();
+      return recordId;
     })
     .then(updateRecord)
     .then(doUpdate())
@@ -138,6 +139,22 @@ describe('Sync', function() {
     .then(function verifyCorrectCollision(event) {
       // Assert that the collision is the one we caused.
       expect(event.message.uid).toEqual(recordId);
+    })
+    .then(listCollisions)
+    .then(function verifyCollisionInList(collisions) {
+      // Find the collision we invoked earlier.
+      const invokedCollision = searchObject(collisions, function(collision) {
+        return collision.uid === recordId;
+      });
+      // Assert that the collision is the one we caused.
+      expect(invokedCollision).not.toBeNull();
+      return invokedCollision;
+    })
+    .then(removeCollision)
+    .then(listCollisions)
+    .then(function(collisions) {
+      // There should be no collisions left. We deleted the only one.
+      expect(collisions).toEqual({});
     })
     .catch(function(err) {
       expect(err).toBeNull();
@@ -186,6 +203,35 @@ function doRead(uid) {
   };
 }
 
+function doUpdate() {
+  return function(res) {
+    return new Promise(function(resolve, reject) {
+      $fh.sync.doUpdate(datasetId, res.uid, updateData, function() {
+        resolve(res);
+      }, function(err) {
+        reject(err);
+      });
+    });
+  };
+}
+
+function listCollisions() {
+  return new Promise(function(resolve, reject) {
+    $fh.sync.listCollisions(datasetId, function(collisions) {
+      expect(collisions).not.toBeNull();
+      resolve(collisions);
+    }, function(err) {
+      reject(err);
+    });
+  });
+}
+
+function removeCollision(collision) {
+  return new Promise(function(resolve, reject) {
+    $fh.sync.removeCollision(datasetId, collision.hash, resolve, reject);
+  });
+}
+
 /**
  * Update the value of a record. Used to cause a collision.
  */
@@ -204,14 +250,18 @@ function updateRecord(uid) {
   });
 }
 
-function doUpdate() {
-  return function(res) {
-    return new Promise(function(resolve, reject) {
-      $fh.sync.doUpdate(datasetId, res.uid, updateData, function() {
-        resolve(res);
-      }, function(err) {
-        reject(err);
-      });
-    });
-  };
+/**
+ * Iterate through the elements of an object and return the first element
+ * which returns `true` for the `test` function argument.
+ *
+ * @param {Object} obj - The object to search.
+ * @param {Function} test - The function to test each element with.
+ * @returns {any} - The first element in `obj` which passed `test`.
+ */
+function searchObject(obj, test) {
+  for (var key in obj) {
+    if (obj.hasOwnProperty(key) && test(obj[key])) {
+      return obj[key];
+    }
+  }
 }
