@@ -36,7 +36,7 @@ module.exports = function(grunt) {
       }
     },
     eslint: {
-      target: ['app.js', 'application.js', 'spec/syncSpec.js']
+      target: ['app.js', 'application.js', 'spec/*.js']
     }
   });
 
