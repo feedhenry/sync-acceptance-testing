@@ -35,11 +35,15 @@ module.exports = function(grunt) {
         }
       }
     },
+    eslint: {
+      target: ['app.js', 'application.js', 'spec/syncSpec.js']
+    }
   });
 
   grunt.loadTasks('tasks');
   grunt.loadNpmTasks('grunt-contrib-jasmine');
-  grunt.registerTask('default', ['startServers', 'jasmine', 'stopServers']);
+  grunt.loadNpmTasks('grunt-eslint');
+  grunt.registerTask('default', ['eslint', 'startServers', 'jasmine', 'stopServers']);
 };
 
 

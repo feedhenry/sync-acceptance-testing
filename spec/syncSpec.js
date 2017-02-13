@@ -1,12 +1,10 @@
 const datasetId = 'specDataset';
 const testData = { test: 'text' };
 const updateData = { test: 'something else' };
-var dataId;
-
 
 function waitForSyncEvent(expectedEvent) {
   return function() {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function(resolve) {
       $fh.sync.notify(function(event) {
         //console.log('!!!!!!!!!!!!!!!!!!!!!!!!!! SYNC_EVENT', event.code, JSON.stringify(event));
         if (event.code === expectedEvent) {
@@ -31,9 +29,9 @@ describe('Sync', function() {
   afterAll(function() {
     return new Promise(function(resolve, reject) {
       // We don't want to fail the test if the data isn't removed so resolve.
-      $fh.cloud({ path: '/dataset/' + datasetId + '/reset' }, resolve, resolve);
+      $fh.cloud({ path: '/dataset/' + datasetId + '/reset' }, resolve, reject);
     });
-  })
+  });
 
   it('should manage a dataset', function() {
     $fh.sync.manage(datasetId);
@@ -65,27 +63,27 @@ describe('Sync', function() {
     });
     return manage()
     .then(doCreate)
-    .then(function (res) {
+    .then(function(res) {
       expect(res.action).toEqual('create');
       expect(res.post).toEqual(testData);
     })
     .then(waitForSyncEvent('remote_update_applied'))
     .then(function verifyUpdateApplied(event) {
-       expect(event.dataset_id).toEqual(datasetId);
-       expect(event.message.type).toEqual('applied');
-       expect(event.message.action).toEqual('create');
-     });
+      expect(event.dataset_id).toEqual(datasetId);
+      expect(event.message.type).toEqual('applied');
+      expect(event.message.action).toEqual('create');
+    });
   });
 
   it('should read', function() {
     return manage()
     .then(doCreate)
     .then(doRead())
-    .then(function (data) {
+    .then(function(data) {
       expect(data.data).toEqual(testData);
       expect(data.hash).not.toBeNull();
     })
-    .catch(function (err) {
+    .catch(function(err) {
       expect(err).toBeNull();
     });
   });
@@ -94,7 +92,7 @@ describe('Sync', function() {
     return manage()
     .then(doCreate)
     .then(doRead('bogus_uid'))
-    .catch(function (err) {
+    .catch(function(err) {
       expect(err).toEqual('unknown_uid');
     });
   });
@@ -107,7 +105,7 @@ describe('Sync', function() {
     .then(function verifyUpdate(data) {
       expect(data.data).toEqual(updateData);
     })
-    .catch(function (err) {
+    .catch(function(err) {
       expect(err).toBeNull();
     });
   });
@@ -117,7 +115,7 @@ describe('Sync', function() {
     .then(doCreate)
     .then(doDelete())
     .then(doRead())
-    .catch(function (err) {
+    .catch(function(err) {
       expect(err).toEqual('unknown_uid');
     });
   });
@@ -125,7 +123,7 @@ describe('Sync', function() {
 });
 
 function manage() {
-  return new Promise(function (resolve, reject) {
+  return new Promise(function(resolve) {
     $fh.sync.manage(datasetId, {}, {}, {}, function() {
       resolve();
     });
@@ -136,7 +134,7 @@ function doCreate() {
   return new Promise(function(resolve, reject) {
     $fh.sync.doCreate(datasetId, testData, function(res) {
       resolve(res);
-    }, function (err) {
+    }, function(err) {
       reject(err);
     });
   });
@@ -144,7 +142,7 @@ function doCreate() {
 
 function doDelete() {
   return function(res) {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function(resolve) {
       $fh.sync.doDelete(datasetId, res.uid, function() {
         resolve(res);
       });
@@ -169,7 +167,7 @@ function doUpdate() {
     return new Promise(function(resolve, reject) {
       $fh.sync.doUpdate(datasetId, res.uid, updateData, function() {
         resolve(res);
-      }, function (err) {
+      }, function(err) {
         reject(err);
       });
     });
