@@ -27,7 +27,8 @@ app.use(mbaasExpress.errorHandler());
 var port = process.env.FH_PORT || process.env.OPENSHIFT_NODEJS_PORT || 8001;
 var host = process.env.OPENSHIFT_NODEJS_IP || '0.0.0.0';
 var server = app.listen(port, host, function() {
-  console.log("App started at: " + new Date() + " on port: " + port); 
+  // eslint-disable-next-line
+  console.log("App started at: " + new Date() + " on port: " + port);
 });
 
 /**
@@ -49,11 +50,11 @@ function resetDataset(req, res) {
     }
     return res.json({message: 'Dataset ' + dataset + ' reset'}).status(200);
   });
-};
+}
 
 /**
  * Remove all records for a particular collection in MongoDB.
- * 
+ *
  * @param {string} collection - Name of the MongoDB collection.
  * @param {Function} cb - Callback function.
  */
@@ -62,7 +63,7 @@ function resetCollection(collection, cb) {
     act: 'deleteall',
     type: collection
   }, cb);
-};
+}
 
 module.exports = {
   app: app,
