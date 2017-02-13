@@ -1,4 +1,5 @@
 const async = require('async');
+const bodyParser = require('body-parser');
 const mbaasApi = require('fh-mbaas-api');
 const express = require('express');
 const mbaasExpress = mbaasApi.mbaasExpress();
@@ -8,6 +9,9 @@ const app = express();
 
 // Enable CORS for all requests
 app.use(cors());
+
+// Use JSON body parser for all requests
+app.use(bodyParser.json());
 
 // Note: the order which we add middleware to Express here is important!
 app.use('/sys', mbaasExpress.sys([]));
@@ -20,6 +24,7 @@ app.use(express.static(__dirname + '/public'));
 app.use(mbaasExpress.fhmiddleware());
 
 app.post('/dataset/:datasetId/reset', resetDataset);
+app.post('/dataset/:datasetId/record/:recordId', updateRecord);
 
 // Important that this is last!
 app.use(mbaasExpress.errorHandler());
@@ -36,7 +41,7 @@ function resetDataset(req, res) {
   // Define titles for default, updates and collision collections in MongoDB.
   const dataset = req.params.datasetId;
   const updates = dataset + '-updates';
-  const collisions = dataset + '-collision';
+  const collisions = dataset + '_collision';
 
   // Delete all records in the MongoDB collections for the dataset.
   async.forEach([dataset, updates, collisions], function(collection, cb) {
@@ -67,3 +72,25 @@ module.exports = {
   app: app,
   server: server
 };
+
+/**
+ * Update a record in a particular dataset. Used to cause a collision.
+ */
+function updateRecord(req, res) {
+
+  const dataset = req.params.datasetId;
+  const record = req.params.recordId;
+  const recordData = req.body.data;
+
+  mbaasApi.db({
+    act: 'update',
+    type: dataset,
+    guid: record,
+    fields: recordData
+  }, function(err, data) {
+    if (err) {
+      return res.json({ error: err }).status(500);
+    }
+    return res.json({ data: data }).status(200);
+  });
+}

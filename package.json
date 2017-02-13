@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "async": "^2.1.4",
+    "body-parser": "^1.16.1",
     "browserify": "^14.0.0",
     "browserify-shim": "^3.8.13",
     "connect": "^3.5.0",

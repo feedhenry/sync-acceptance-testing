@@ -1,12 +1,12 @@
 const datasetId = 'specDataset';
 const testData = { test: 'text' };
 const updateData = { test: 'something else' };
+const collisionData = { test: 'cause a collision' };
 
 function waitForSyncEvent(expectedEvent) {
   return function() {
     return new Promise(function(resolve) {
       $fh.sync.notify(function(event) {
-        //console.log('!!!!!!!!!!!!!!!!!!!!!!!!!! SYNC_EVENT', event.code, JSON.stringify(event));
         if (event.code === expectedEvent) {
           expect(event.code).toEqual(expectedEvent); // keep jasmine happy with at least 1 expectation
           resolve(event);
@@ -120,6 +120,30 @@ describe('Sync', function() {
     });
   });
 
+  it('should cause a collision', function() {
+    // The UID of the record which should have a collision.
+    var recordId;
+
+    return manage()
+    .then(doCreate)
+    .then(waitForSyncEvent('remote_update_applied'))
+    .then(function verifyUpdateApplied(event) {
+      expect(event.message.uid).not.toBeNull();
+      recordId = event.message.uid;
+      return event.message.uid;
+    })
+    .then(updateRecord)
+    .then(doUpdate())
+    .then(waitForSyncEvent('collision_detected'))
+    .then(function verifyCorrectCollision(event) {
+      // Assert that the collision is the one we caused.
+      expect(event.message.uid).toEqual(recordId);
+    })
+    .catch(function(err) {
+      expect(err).toBeNull();
+    });
+  });
+
 });
 
 function manage() {
@@ -160,6 +184,24 @@ function doRead(uid) {
       });
     });
   };
+}
+
+/**
+ * Update the value of a record. Used to cause a collision.
+ */
+function updateRecord(uid) {
+  return new Promise(function(resolve, reject) {
+
+    const updatePath = '/dataset/' + datasetId + '/record/' + uid;
+    const recordData = { data: collisionData };
+
+    $fh.cloud({
+      path: updatePath,
+      data: recordData
+    }, function() {
+      resolve({ uid: uid });
+    }, reject);
+  });
 }
 
 function doUpdate() {
