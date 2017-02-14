@@ -23,8 +23,9 @@ app.use(express.static(__dirname + '/public'));
 // Note: important that this is added just before your own Routes
 app.use(mbaasExpress.fhmiddleware());
 
-app.post('/dataset/:datasetId/reset', resetDataset);
-app.post('/dataset/:datasetId/record/:recordId', updateRecord);
+app.post('/datasets/:datasetId/reset', resetDataset);
+app.post('/datasets/:datasetId/records', createRecord);
+app.put('/datasets/:datasetId/records/:recordId', updateRecord);
 
 // Important that this is last!
 app.use(mbaasExpress.errorHandler());
@@ -86,6 +87,25 @@ function updateRecord(req, res) {
     act: 'update',
     type: dataset,
     guid: record,
+    fields: recordData
+  }, function(err, data) {
+    if (err) {
+      return res.json({ error: err }).status(500);
+    }
+    return res.json({ data: data }).status(200);
+  });
+}
+
+/**
+ * Create a record in a particular dataset.
+ */
+function createRecord(req, res) {
+  const dataset = req.params.datasetId;
+  const recordData = req.body.data;
+
+  mbaasApi.db({
+    act: 'create',
+    type: dataset,
     fields: recordData
   }, function(err, data) {
     if (err) {
