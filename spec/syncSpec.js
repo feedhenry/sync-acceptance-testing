@@ -1,20 +1,6 @@
 const datasetId = 'specDataset';
 const testData = { test: 'text' };
 const updateData = { test: 'something else' };
-const collisionData = { test: 'cause a collision' };
-
-function waitForSyncEvent(expectedEvent) {
-  return function() {
-    return new Promise(function(resolve) {
-      $fh.sync.notify(function(event) {
-        if (event.code === expectedEvent) {
-          expect(event.code).toEqual(expectedEvent); // keep jasmine happy with at least 1 expectation
-          resolve(event);
-        }
-      });
-    });
-  };
-}
 
 describe('Sync', function() {
 
@@ -29,7 +15,7 @@ describe('Sync', function() {
   afterAll(function() {
     return new Promise(function(resolve, reject) {
       // We don't want to fail the test if the data isn't removed so resolve.
-      $fh.cloud({ path: '/dataset/' + datasetId + '/reset' }, resolve, reject);
+      $fh.cloud({ path: '/datasets/' + datasetId + '/reset' }, resolve, reject);
     });
   });
 
@@ -121,6 +107,7 @@ describe('Sync', function() {
   });
 
   it('should cause a collision', function() {
+    const collisionData = { test: 'cause a collision' };
     // The UID of the record which should have a collision.
     var recordId;
 
@@ -133,7 +120,7 @@ describe('Sync', function() {
       expect(recordId).not.toBeNull();
       return recordId;
     })
-    .then(updateRecord)
+    .then(updateRecord(collisionData))
     .then(doUpdate())
     .then(waitForSyncEvent('collision_detected'))
     .then(function verifyCorrectCollision(event) {
@@ -152,15 +139,59 @@ describe('Sync', function() {
     })
     .then(removeCollision)
     .then(listCollisions)
-    .then(function(collisions) {
+    .then(function verifyNoCollisions(collisions) {
       // There should be no collisions left. We deleted the only one.
       expect(collisions).toEqual({});
     })
     .catch(function(err) {
       expect(err).toBeNull();
     });
-  });
+  }, 60000);
 
+  it('should create records created by other clients', function() {
+    const recordToCreate = { test: 'create' };
+
+    return manage()
+    .then(createRecord(recordToCreate))
+    .then(waitForSyncEvent('record_delta_received'))
+    .then(function verifyDeltaStructure(event) {
+      expect(event.uid).not.toBeNull();
+      expect(event.message).toEqual('create');
+      expect(event.dataset_id).toEqual(datasetId);
+      return event;
+    })
+    .then(doRead())
+    .then(function verifyCorrectRecordApplied(record) {
+      expect(record.data).toEqual(recordToCreate);
+    })
+    .catch(function(err) {
+      expect(err).toBeNull();
+    });
+  }, 60000);
+
+  it('should update records updated by other clients', function() {
+    const updateData = { test: 'cause a client update' };
+
+    return manage()
+    .then(doCreate)
+    .then(waitForSyncEvent('remote_update_applied'))
+    .then(function verifyUpdateApplied(event) {
+      return event.message.uid;
+    })
+    .then(updateRecord(updateData))
+    .then(waitForSyncEvent('record_delta_received'))
+    .then(function verifyDeltaStructure(event) {
+      expect(event.message).toEqual('update');
+      return event;
+    })
+    .then(doRead())
+    .then(function verifyRecordUpdated(record) {
+      expect(record.data).toEqual(updateData);
+    })
+    .catch(function(err) {
+      expect(err).toBeNull();
+    });
+  }, 60000);
 });
 
 function manage() {
@@ -235,19 +266,57 @@ function removeCollision(collision) {
 /**
  * Update the value of a record. Used to cause a collision.
  */
-function updateRecord(uid) {
-  return new Promise(function(resolve, reject) {
+function updateRecord(record) {
+  return function(uid) {
+    return new Promise(function(resolve, reject) {
 
-    const updatePath = '/dataset/' + datasetId + '/record/' + uid;
-    const recordData = { data: collisionData };
+      const updatePath = '/datasets/' + datasetId + '/records/' + uid;
+      const recordData = { data: record };
+
+      $fh.cloud({
+        path: updatePath,
+        data: recordData,
+        method: 'put'
+      }, function() {
+        resolve({ uid: uid });
+      }, reject);
+    });
+  };
+}
+
+/**
+ * Create a record in the database, avoiding sync.
+ *
+ * @param {Object} record - The record to create.
+ */
+function createRecord(record) {
+  return new Promise(function(resolve, reject) {
+    const createPath = '/datasets/' + datasetId + '/records';
+    const recordData = { data: record };
 
     $fh.cloud({
-      path: updatePath,
+      path: createPath,
       data: recordData
-    }, function() {
-      resolve({ uid: uid });
-    }, reject);
+    }, resolve, reject);
   });
+}
+
+/**
+ * Wait for a specific notification to be made from the client SDK.
+ *
+ * @param {string} expectedEvent - The name of the event to wait for.
+ */
+function waitForSyncEvent(expectedEvent) {
+  return function() {
+    return new Promise(function(resolve) {
+      $fh.sync.notify(function(event) {
+        if (event.code === expectedEvent) {
+          expect(event.code).toEqual(expectedEvent); // keep jasmine happy with at least 1 expectation
+          resolve(event);
+        }
+      });
+    });
+  };
 }
 
 /**
