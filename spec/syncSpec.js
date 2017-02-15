@@ -4,6 +4,16 @@ const updateData = { test: 'something else' };
 
 describe('Sync', function() {
 
+  beforeAll(function(done) {
+    $fh.cloud({
+      path: '/datasets',
+      data: {
+        name: 'specDataset',
+        options: { syncFrequency: 1 }
+      }
+    }, done, done.fail);
+  });
+
   beforeEach(function() {
     $fh.sync.init({ sync_frequency: 1, storage_strategy: 'dom' });
   });
@@ -12,11 +22,8 @@ describe('Sync', function() {
     $fh.sync.stopSync(datasetId, done, done.fail);
   });
 
-  afterAll(function() {
-    return new Promise(function(resolve, reject) {
-      // We don't want to fail the test if the data isn't removed so resolve.
-      $fh.cloud({ path: '/datasets/' + datasetId + '/reset' }, resolve, reject);
-    });
+  afterAll(function(done) {
+    $fh.cloud({ path: '/datasets/' + datasetId + '/reset' }, done, done.fail);
   });
 
   it('should manage a dataset', function() {
@@ -146,7 +153,7 @@ describe('Sync', function() {
     .catch(function(err) {
       expect(err).toBeNull();
     });
-  }, 60000);
+  });
 
   it('should create records created by other clients', function() {
     const recordToCreate = { test: 'create' };
@@ -167,7 +174,7 @@ describe('Sync', function() {
     .catch(function(err) {
       expect(err).toBeNull();
     });
-  }, 60000);
+  });
 
   it('should update records updated by other clients', function() {
     const updateData = { test: 'cause a client update' };
@@ -191,7 +198,7 @@ describe('Sync', function() {
     .catch(function(err) {
       expect(err).toBeNull();
     });
-  }, 60000);
+  });
 });
 
 function manage() {

@@ -24,6 +24,7 @@ app.use(express.static(__dirname + '/public'));
 app.use(mbaasExpress.fhmiddleware());
 
 app.post('/datasets/:datasetId/reset', resetDataset);
+app.post('/datasets', createDataset);
 app.post('/datasets/:datasetId/records', createRecord);
 app.put('/datasets/:datasetId/records/:recordId', updateRecord);
 
@@ -112,5 +113,20 @@ function createRecord(req, res) {
       return res.json({ error: err }).status(500);
     }
     return res.json({ data: data }).status(200);
+  });
+}
+
+/**
+ * Create a dataset with the provided options.
+ */
+function createDataset(req, res) {
+  const datasetName = req.body.name;
+  const datasetOptions = req.body.options;
+
+  mbaasApi.sync.init(datasetName, datasetOptions, function(err, dataset) {
+    if (err) {
+      return res.json({ error: err }).status(500);
+    }
+    return res.json({ data: dataset }).status(200);
   });
 }
