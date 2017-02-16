@@ -15,7 +15,7 @@ describe('Sync', function() {
   });
 
   beforeEach(function() {
-    $fh.sync.init({ sync_frequency: 1, storage_strategy: 'dom' });
+    $fh.sync.init({ sync_frequency: 1, storage_strategy: 'dom' , crashed_count_wait: 1});
   });
 
   afterEach(function(done) {
@@ -259,25 +259,54 @@ describe('Sync', function() {
     });
 
     return manage(datasetId)
-      .then(doCreate(datasetId, testData))
-      .then(function(res) {
-        const uid = res.uid;
-        return doUpdate(datasetId, uid, updateData)
-          .then(doRead(datasetId, uid))
-          .then(function verifyUpdate(data) {
-            expect(data).toEqual(updateData);
-          })
-          .then(offline())
-          .then(doUpdate(datasetId, uid, updateData))
-          .then(online())
-          .then(doRead(datasetId, uid))
-          .then(waitForSyncEvent('remote_update_applied'));
-      })
+    .then(doCreate(datasetId, testData))
+    .then(function(res) {
+      const uid = res.uid;
+      return doUpdate(datasetId, uid, updateData)
+        .then(doRead(datasetId, uid))
+        .then(function verifyUpdate(data) {
+          expect(data).toEqual(updateData);
+        })
+        .then(offline())
+        .then(doUpdate(datasetId, uid, updateData))
+        .then(online())
+        .then(doRead(datasetId, uid))
+        .then(waitForSyncEvent('remote_update_applied'));
+    })
     .catch(function(err) {
       expect(err).toBeNull();
     });
   });
 
+  it('should handle crashed records', function() {
+    return setServerStatus({ crashed: true })()
+    .then(manage(datasetId, { sync_frequency: 2 }))
+    .then(doCreate(datasetId, testData))
+    .then(function(record) {
+      // Wait twice to ensure record was included in pending at the time.
+      return waitForSyncEvent('sync_failed')()
+      .then(waitForSyncEvent('sync_failed'))
+      .then(getPending(datasetId))
+      .then(function verifyPendingRecordCrashed(pending) {
+        expect(pending[record.hash].inFlight).toBe(true);
+        expect(pending[record.hash].crashed).toBe(true);
+      })
+      .then(setServerStatus({ crashed: false }))
+      .then(waitForSyncEvent('remote_update_applied'))
+      .then(function verifyCorrectRecordApplied(event) {
+        // A record has been applied, check that its our record.
+        const recordUid = $fh.sync.getUID(record.hash);
+        expect(event.uid).toEqual(recordUid);
+      })
+      .then(getPending(datasetId))
+      .then(function verifyNoPending(pending) {
+        expect(pending).toEqual({});
+      });
+    })
+    .catch(function(err) {
+      expect(err).toBeNull();
+    });
+  });
 });
 
 function offline() {
@@ -297,9 +326,9 @@ function setOnline(online) {
   });
 }
 
-function manage(dataset) {
+function manage(dataset, options) {
   return new Promise(function(resolve) {
-    $fh.sync.manage(dataset, {}, {}, {}, function() {
+    $fh.sync.manage(dataset, options, {}, {}, function() {
       resolve();
     });
   });
@@ -376,6 +405,14 @@ function removeCollision(collision) {
   });
 }
 
+function getPending(dataset) {
+  return function() {
+    return new Promise(function(resolve) {
+      $fh.sync.getPending(dataset, resolve);
+    });
+  };
+}
+
 /**
  * Update the value of a record. Used to cause a collision.
  */
@@ -441,6 +478,25 @@ function waitForSyncEvent(expectedEvent) {
           resolve(event);
         }
       });
+    });
+  };
+}
+
+/**
+ * Set the server into or out of a crashed state with a custom response status.
+ *
+ * @param {Object} status - The status object.
+ * @param {boolean} status.crashed - If the server should act as crashed.
+ * @param {number} status.crashStatus - If crashed, what status code to use.
+ */
+function setServerStatus(status) {
+  const serverStatus = { status: status };
+  return function() {
+    return new Promise(function(resolve, reject) {
+      $fh.cloud({
+        path: '/server/status',
+        data: serverStatus
+      }, resolve, reject);
     });
   };
 }
