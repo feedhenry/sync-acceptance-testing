@@ -128,39 +128,37 @@ describe('Sync', function() {
 
     return manage(datasetId)
     .then(doCreate(datasetId, testData))
-    .then(function withResult() {
-      return waitForSyncEvent('remote_update_applied')()
-      .then(function verifyUpdateApplied(event) {
-        // We need to store this for updating in MongoDB in the next step.
-        expect(event.message.uid).not.toBeNull();
-        // The UID of the record which should have a collision.
-        var recordId = event.message.uid;
-        return updateRecord(datasetId, recordId, collisionData)
-        .then(doUpdate(datasetId, recordId , updateData))
-        .then(waitForSyncEvent('collision_detected'))
-        .then(function verifyCorrectCollision(event) {
-          // Assert that the collision is the one we caused.
-          expect(event.message.uid).toEqual(recordId);
-        })
-        .then(listCollisions(datasetId))
-        .then(function verifyCollisionInList(collisions) {
-          // Find the collision we invoked earlier.
-          const invokedCollision = searchObject(collisions, function(collision) {
-            return collision.uid === recordId;
-          });
-          // Assert that the collision is the one we caused.
-          expect(invokedCollision).not.toBeNull();
-          return invokedCollision;
-        })
-        .then(removeCollision)
-        .then(listCollisions(datasetId))
-        .then(function verifyNoCollisions(collisions) {
-          // There should be no collisions left. We deleted the only one.
-          expect(collisions).toEqual({});
-        })
-        .catch(function(err) {
-          expect(err).toBeNull();
+    .then(waitForSyncEvent('remote_update_applied'))
+    .then(function verifyUpdateApplied(event) {
+      // We need to store this for updating in MongoDB in the next step.
+      expect(event.message.uid).not.toBeNull();
+      // The UID of the record which should have a collision.
+      var recordId = event.message.uid;
+      return updateRecord(datasetId, recordId, collisionData)
+      .then(doUpdate(datasetId, recordId , updateData))
+      .then(waitForSyncEvent('collision_detected'))
+      .then(function verifyCorrectCollision(event) {
+        // Assert that the collision is the one we caused.
+        expect(event.message.uid).toEqual(recordId);
+      })
+      .then(listCollisions(datasetId))
+      .then(function verifyCollisionInList(collisions) {
+        // Find the collision we invoked earlier.
+        const invokedCollision = searchObject(collisions, function(collision) {
+          return collision.uid === recordId;
         });
+        // Assert that the collision is the one we caused.
+        expect(invokedCollision).not.toBeNull();
+        return invokedCollision;
+      })
+      .then(removeCollision)
+      .then(listCollisions(datasetId))
+      .then(function verifyNoCollisions(collisions) {
+        // There should be no collisions left. We deleted the only one.
+        expect(collisions).toEqual({});
+      })
+      .catch(function(err) {
+        expect(err).toBeNull();
       });
     });
   });
