@@ -375,6 +375,25 @@ describe('Sync', function() {
       });
   });
 
+  it('should update uid after remote update', function() {
+    return manage(datasetId)
+    .then(doCreate(datasetId, testData))
+    .then(function(record) {
+      return new Promise(function verifyUidIsHash(resolve) {
+        const recordUid = $fh.sync.getUID(record.hash);
+        expect(record.hash).toEqual(recordUid);
+        resolve();
+      })
+      .then(waitForSyncEvent('remote_update_applied'))
+      .then(function verifyUidIsUpdated(event) {
+        const recordUid = $fh.sync.getUID(record.hash);
+        expect(event.uid).toEqual(recordUid);
+      });
+    })
+    .catch(function(err) {
+      expect(err).toBeNull();
+    });
+  });
 });
 
 function offline() {
