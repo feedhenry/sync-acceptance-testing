@@ -276,6 +276,33 @@ describe('Sync', function() {
     });
   });
 
+  it('should not stop remote updates using forceSync while sync not active', function() {
+    // `local_update_applied` might be sent before `doCreate` finishes.
+    $fh.sync.notify(function(event) {
+      if (event.code === 'local_update_applied') {
+        expect(event.dataset_id).toEqual(datasetId);
+        expect(event.message).toMatch(/(load|create)/);
+      }
+    });
+
+    return manage(datasetId)
+    .then(stopSync(datasetId))
+    .then(doCreate(datasetId, testData))
+    .then(function(record) {
+      // Wait time to ensure `remote_update_applied` is called after online.
+      return waitForSyncEvent('sync_complete')()
+      .then(forceSync(datasetId))
+      .then(waitForSyncEvent('remote_update_applied'))
+      .then(function verifyCorrectRecord(event) {
+        const recordUid = $fh.sync.getUID(record.hash);
+        expect(event.uid).toEqual(recordUid);
+      });
+    })
+    .catch(function(err) {
+      expect(err).toBeNull();
+    });
+  });
+
   it('should sync after client goes offline', function() {
     $fh.sync.notify(function(event) {
       if (event.code === 'offline_update') {
@@ -527,6 +554,19 @@ function startSync(dataset) {
 }
 
 /**
+ * Force sync for a particular dataset. Even if sync is inactive.
+ *
+ * @param {string} dataset - The name of the dataset to force a sync on.
+ */
+function forceSync(dataset) {
+  return function() {
+    return new Promise(function(resolve, reject) {
+      $fh.sync.forceSync(dataset, resolve, reject);
+    });
+  };
+}
+
+/**
  * Stop sync for a specified dataset. Only local updates will be applied.
  *
  * @param {string} dataset - The dataset to stop syncing.
@@ -538,6 +578,7 @@ function stopSync(dataset) {
     });
   };
 }
+
 /**
  * Wait for a specific notification to be made from the client SDK.
  *
