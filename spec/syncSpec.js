@@ -249,8 +249,34 @@ describe('Sync', function() {
     });
   });
 
-  it('should sync after client goes offline', function() {
+  it('should stop remote updates on stopSync', function() {
+    // `local_update_applied` might be sent before `doCreate` finishes.
+    $fh.sync.notify(function(event) {
+      if (event.code === 'local_update_applied') {
+        expect(event.dataset_id).toEqual(datasetId);
+        expect(event.message).toMatch(/(load|create)/);
+      }
+    });
 
+    return manage(datasetId)
+    .then(stopSync(datasetId))
+    .then(doCreate(datasetId, testData))
+    .then(function(record) {
+      // Wait time to ensure `remote_update_applied` is called after online.
+      return waitForSyncEvent('sync_complete')()
+      .then(startSync(datasetId))
+      .then(waitForSyncEvent('remote_update_applied'))
+      .then(function verifyCorrectRecord(event) {
+        const recordUid = $fh.sync.getUID(record.hash);
+        expect(event.uid).toEqual(recordUid);
+      });
+    })
+    .catch(function(err) {
+      expect(err).toBeNull();
+    });
+  });
+
+  it('should sync after client goes offline', function() {
     $fh.sync.notify(function(event) {
       if (event.code === 'offline_update') {
         expect(event.dataset_id).toEqual(datasetId);
@@ -487,6 +513,31 @@ function removeDataset(dataset) {
   };
 }
 
+/**
+ * Start sync for a specified dataset.
+ *
+ * @param {string} dataset - The dataset to start syncing.
+ */
+function startSync(dataset) {
+  return function() {
+    return new Promise(function(resolve, reject) {
+      $fh.sync.startSync(dataset, resolve, reject);
+    });
+  };
+}
+
+/**
+ * Stop sync for a specified dataset. Only local updates will be applied.
+ *
+ * @param {string} dataset - The dataset to stop syncing.
+ */
+function stopSync(dataset) {
+  return function() {
+    return new Promise(function(resolve, reject) {
+      $fh.sync.stopSync(dataset, resolve, reject);
+    });
+  };
+}
 /**
  * Wait for a specific notification to be made from the client SDK.
  *
