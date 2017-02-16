@@ -7,11 +7,25 @@ const cors = require('cors');
 
 const app = express();
 
+// Used to check whether the server should respond.
+const serverStatus = {
+  crashed: false
+};
+
 // Enable CORS for all requests
 app.use(cors());
 
 // Use JSON body parser for all requests
 app.use(bodyParser.json());
+
+// Check if the server is currently set to crash for all requests.
+app.use(function crashIfNeeded(req, res, next) {
+  if (req.originalUrl.indexOf('mbaas/sync') !== -1 && serverStatus.crashed) {
+    return res.status(403).end();
+  } else {
+    next();
+  }
+});
 
 // Note: the order which we add middleware to Express here is important!
 app.use('/sys', mbaasExpress.sys([]));
@@ -23,6 +37,7 @@ app.use(express.static(__dirname + '/public'));
 // Note: important that this is added just before your own Routes
 app.use(mbaasExpress.fhmiddleware());
 
+app.post('/server/status', updateStatus);
 app.post('/datasets/:datasetId/reset', resetDataset);
 app.post('/datasets', createDataset);
 app.post('/datasets/:datasetId/records', createRecord);
@@ -129,4 +144,16 @@ function createDataset(req, res) {
     }
     return res.json({ data: dataset }).status(200);
   });
+}
+
+/**
+ * Update current server status with the options provided.
+ * Used to set the server to a crashed state (returning 500's).
+ */
+function updateStatus(req, res) {
+  if (req.body.status.hasOwnProperty('crashed')) {
+    serverStatus.crashed = req.body.status.crashed;
+  }
+
+  res.json({ data: serverStatus }).status(200);
 }
