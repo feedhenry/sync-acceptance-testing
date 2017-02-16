@@ -71,10 +71,13 @@ describe('Sync', function() {
   it('should read', function() {
     return manage(datasetId)
     .then(doCreate(datasetId, testData))
-    .then(doRead(datasetId))
-    .then(function(data) {
-      expect(data.data).toEqual(testData);
-      expect(data.hash).not.toBeNull();
+    .then(function withResult(res) {
+      const uid = res.uid;
+      return doRead(datasetId, uid)
+      .then(function verifyData(data) {
+        expect(data.data).toEqual(testData);
+        expect(data.hash).not.toBeNull();
+      });
     })
     .catch(function(err) {
       expect(err).toBeNull();
@@ -84,8 +87,10 @@ describe('Sync', function() {
   it('should fail when reading unknown uid', function() {
     return manage(datasetId)
     .then(doCreate(datasetId, testData))
-    .then(doRead(datasetId, 'bogus_uid'))
-    .catch(function(err) {
+    .then(function withResult() {
+      return doRead(datasetId, 'bogus_uid');
+    })
+    .catch(function verifyError(err) {
       expect(err).toEqual('unknown_uid');
     });
   });
@@ -93,10 +98,13 @@ describe('Sync', function() {
   it('should update', function() {
     return manage(datasetId)
     .then(doCreate(datasetId, testData))
-    .then(doUpdate())
-    .then(doRead(datasetId))
-    .then(function verifyUpdate(data) {
-      expect(data.data).toEqual(updateData);
+    .then(function withResult(res) {
+      const uid = res.uid;
+      return doUpdate(datasetId, uid, updateData)
+      .then(doRead(datasetId, uid))
+      .then(function verifyUpdate(data) {
+        expect(data).toEqual(updateData);
+      });
     })
     .catch(function(err) {
       expect(err).toBeNull();
@@ -105,53 +113,53 @@ describe('Sync', function() {
 
   it('should delete', function() {
     return manage(datasetId)
-    .then(doCreate(datasetId, testData))
-    .then(doDelete())
-    .then(doRead(datasetId))
-    .catch(function(err) {
-      expect(err).toEqual('unknown_uid');
-    });
+      .then(doCreate(datasetId, testData))
+      .then(function withResult(res) {
+        const uid = res.uid;
+        return doDelete(datasetId, uid)
+        .then(doRead(datasetId, uid).catch(function(err) {
+          expect(err).toEqual('unknown_uid');
+        }));
+      });
   });
 
   it('should cause a collision', function() {
     const collisionData = { test: 'cause a collision' };
-    // The UID of the record which should have a collision.
-    var recordId;
 
     return manage(datasetId)
     .then(doCreate(datasetId, testData))
     .then(waitForSyncEvent('remote_update_applied'))
     .then(function verifyUpdateApplied(event) {
       // We need to store this for updating in MongoDB in the next step.
-      recordId = event.message.uid;
-      expect(recordId).not.toBeNull();
-      return recordId;
-    })
-    .then(updateRecord(datasetId, collisionData))
-    .then(doUpdate())
-    .then(waitForSyncEvent('collision_detected'))
-    .then(function verifyCorrectCollision(event) {
-      // Assert that the collision is the one we caused.
-      expect(event.message.uid).toEqual(recordId);
-    })
-    .then(listCollisions)
-    .then(function verifyCollisionInList(collisions) {
-      // Find the collision we invoked earlier.
-      const invokedCollision = searchObject(collisions, function(collision) {
-        return collision.uid === recordId;
+      expect(event.message.uid).not.toBeNull();
+      // The UID of the record which should have a collision.
+      var recordId = event.message.uid;
+      return updateRecord(datasetId, recordId, collisionData)
+      .then(doUpdate(datasetId, recordId , updateData))
+      .then(waitForSyncEvent('collision_detected'))
+      .then(function verifyCorrectCollision(event) {
+        // Assert that the collision is the one we caused.
+        expect(event.message.uid).toEqual(recordId);
+      })
+      .then(listCollisions(datasetId))
+      .then(function verifyCollisionInList(collisions) {
+        // Find the collision we invoked earlier.
+        const invokedCollision = searchObject(collisions, function(collision) {
+          return collision.uid === recordId;
+        });
+        // Assert that the collision is the one we caused.
+        expect(invokedCollision).not.toBeNull();
+        return invokedCollision;
+      })
+      .then(removeCollision)
+      .then(listCollisions(datasetId))
+      .then(function verifyNoCollisions(collisions) {
+        // There should be no collisions left. We deleted the only one.
+        expect(collisions).toEqual({});
+      })
+      .catch(function(err) {
+        expect(err).toBeNull();
       });
-      // Assert that the collision is the one we caused.
-      expect(invokedCollision).not.toBeNull();
-      return invokedCollision;
-    })
-    .then(removeCollision)
-    .then(listCollisions)
-    .then(function verifyNoCollisions(collisions) {
-      // There should be no collisions left. We deleted the only one.
-      expect(collisions).toEqual({});
-    })
-    .catch(function(err) {
-      expect(err).toBeNull();
     });
   });
 
@@ -165,35 +173,13 @@ describe('Sync', function() {
       expect(event.uid).not.toBeNull();
       expect(event.message).toEqual('create');
       expect(event.dataset_id).toEqual(datasetId);
-      return event;
-    })
-    .then(doRead(datasetId))
-    .then(function verifyCorrectRecordApplied(record) {
-      expect(record.data).toEqual(recordToCreate);
-    })
-    .catch(function(err) {
-      expect(err).toBeNull();
-    });
-  }, 60000);
-
-  it('should create records created by other clients', function() {
-    const recordToCreate = { test: 'create' };
-
-    return manage(datasetId)
-    .then(createRecord(datasetId, recordToCreate))
-    .then(waitForSyncEvent('record_delta_received'))
-    .then(function verifyDeltaStructure(event) {
-      expect(event.uid).not.toBeNull();
-      expect(event.message).toEqual('create');
-      expect(event.dataset_id).toEqual(datasetId);
-      return event;
-    })
-    .then(doRead(datasetId))
-    .then(function verifyCorrectRecordApplied(record) {
-      expect(record.data).toEqual(recordToCreate);
-    })
-    .catch(function(err) {
-      expect(err).toBeNull();
+      return doRead(datasetId, event.uid)
+      .then(function verifyCorrectRecordApplied(record) {
+        expect(record.data).toEqual(recordToCreate);
+      })
+      .catch(function(err) {
+        expect(err).toBeNull();
+      });
     });
   });
 
@@ -204,17 +190,16 @@ describe('Sync', function() {
     .then(doCreate(datasetId, testData))
     .then(waitForSyncEvent('remote_update_applied'))
     .then(function verifyUpdateApplied(event) {
-      return event.message.uid;
-    })
-    .then(updateRecord(datasetId, updateData))
-    .then(waitForSyncEvent('record_delta_received'))
-    .then(function verifyDeltaStructure(event) {
-      expect(event.message).toEqual('update');
-      return event;
-    })
-    .then(doRead(datasetId))
-    .then(function verifyRecordUpdated(record) {
-      expect(record.data).toEqual(updateData);
+      const uid = event.uid;
+      return updateRecord(datasetId, uid, updateData)
+      .then(waitForSyncEvent('record_delta_received'))
+      .then(function verifyDeltaStructure(event) {
+        expect(event.message).toEqual('update');
+        return doRead(datasetId, event.uid);
+      })
+      .then(function verifyRecordUpdated(record) {
+        expect(record.data).toEqual(updateData);
+      });
     })
     .catch(function(err) {
       expect(err).toBeNull();
@@ -263,7 +248,54 @@ describe('Sync', function() {
       expect(err).toBeNull();
     });
   });
+
+  it('should sync after client goes offline', function() {
+
+    $fh.sync.notify(function(event) {
+      if (event.code === 'offline_update') {
+        expect(event.dataset_id).toEqual(datasetId);
+        expect(event.message).toEqual('update');
+      }
+    });
+
+    return manage(datasetId)
+      .then(doCreate(datasetId, testData))
+      .then(function(res) {
+        const uid = res.uid;
+        return doUpdate(datasetId, uid, updateData)
+          .then(doRead(datasetId, uid))
+          .then(function verifyUpdate(data) {
+            expect(data).toEqual(updateData);
+          })
+          .then(offline())
+          .then(doUpdate(datasetId, uid, updateData))
+          .then(online())
+          .then(doRead(datasetId, uid))
+          .then(waitForSyncEvent('remote_update_applied'));
+      })
+    .catch(function(err) {
+      expect(err).toBeNull();
+    });
+  });
+
 });
+
+function offline() {
+  return setOnline(false);
+}
+
+function online() {
+  return setOnline(true);
+}
+
+function setOnline(online) {
+  return new Promise(function(resolve) {
+    navigator.network = navigator.network || {};
+    navigator.network.connection = navigator.network.connection || {};
+    navigator.network.connection.type = online ? 'WiFi' : 'none';
+    resolve(online);
+  });
+}
 
 function manage(dataset) {
   return new Promise(function(resolve) {
@@ -285,26 +317,24 @@ function doCreate(dataset, data) {
   };
 }
 
-function doDelete() {
-  return function(res) {
-    return new Promise(function(resolve) {
-      $fh.sync.doDelete(datasetId, res.uid, function() {
-        resolve(res);
-      });
+function doDelete(datasetId, uid) {
+  return new Promise(function(resolve, reject) {
+    $fh.sync.doDelete(datasetId, uid, function() {
+      resolve(true);
+    }, function failure(err) {
+      reject(err);
     });
-  };
+  });
 }
 
-function doRead(dataset, uid) {
-  return function(res) {
-    return new Promise(function(resolve, reject) {
-      $fh.sync.doRead(dataset, uid || res.uid, function(data) {
-        resolve(data);
-      }, function failure(err) {
-        reject(err);
-      });
+function doRead(datasetId, uid) {
+  return new Promise(function(resolve, reject) {
+    $fh.sync.doRead(datasetId, uid, function(data) {
+      resolve(data);
+    }, function failure(err) {
+      reject(err);
     });
-  };
+  });
 }
 
 function doList(dataset) {
@@ -317,27 +347,27 @@ function doList(dataset) {
   };
 }
 
-function doUpdate() {
-  return function(res) {
+function doUpdate(datasetId, uid, updateData) {
+  return new Promise(function(resolve, reject) {
+    $fh.sync.doUpdate(datasetId, uid, updateData, function() {
+      resolve(updateData);
+    }, function(err) {
+      reject(err);
+    });
+  });
+}
+
+function listCollisions(datasetId) {
+  return function() {
     return new Promise(function(resolve, reject) {
-      $fh.sync.doUpdate(datasetId, res.uid, updateData, function() {
-        resolve(res);
+      $fh.sync.listCollisions(datasetId, function(collisions) {
+        expect(collisions).not.toBeNull();
+        resolve(collisions);
       }, function(err) {
         reject(err);
       });
     });
   };
-}
-
-function listCollisions() {
-  return new Promise(function(resolve, reject) {
-    $fh.sync.listCollisions(datasetId, function(collisions) {
-      expect(collisions).not.toBeNull();
-      resolve(collisions);
-    }, function(err) {
-      reject(err);
-    });
-  });
 }
 
 function removeCollision(collision) {
@@ -349,22 +379,20 @@ function removeCollision(collision) {
 /**
  * Update the value of a record. Used to cause a collision.
  */
-function updateRecord(dataset, record) {
-  return function(uid) {
-    return new Promise(function(resolve, reject) {
+function updateRecord(dataset, uid, record) {
+  return new Promise(function(resolve, reject) {
 
-      const updatePath = '/datasets/' + dataset + '/records/' + uid;
-      const recordData = { data: record };
+    const updatePath = '/datasets/' + dataset + '/records/' + uid;
+    const recordData = { data: record };
 
-      $fh.cloud({
-        path: updatePath,
-        data: recordData,
-        method: 'put'
-      }, function() {
-        resolve({ uid: uid });
-      }, reject);
-    });
-  };
+    $fh.cloud({
+      path: updatePath,
+      data: recordData,
+      method: 'put'
+    }, function() {
+      resolve({ uid: uid });
+    }, reject);
+  });
 }
 
 /**
@@ -432,3 +460,4 @@ function searchObject(obj, test) {
     }
   }
 }
+
