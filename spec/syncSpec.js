@@ -119,7 +119,6 @@ describe('Sync', function() {
         return doDelete(datasetId, uid)
         .then(doRead(datasetId, uid).catch(function(err) {
           expect(err).toEqual('unknown_uid');
-          console.log(err);
         }));
       });
   });
