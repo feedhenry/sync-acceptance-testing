@@ -307,6 +307,21 @@ describe('Sync', function() {
       expect(err).toBeNull();
     });
   });
+
+  it('should remove dataset when clearCache is called', function() {
+    return manage(datasetId)
+      .then(doCreate(datasetId, testData))
+      .then(function withResult(res) {
+        const uid = res.uid;
+        return clearCache(datasetId)
+          .then(doRead(datasetId, uid)
+          .catch(function(err) {
+            expect(err).toEqual('unknown_dataset ' + datasetId);
+          })
+          .then(manage(datasetId))); // this is to keep afterEach from failing
+      });
+  });
+
 });
 
 function offline() {
@@ -330,6 +345,14 @@ function manage(dataset, options) {
   return new Promise(function(resolve) {
     $fh.sync.manage(dataset, options, {}, {}, function() {
       resolve();
+    });
+  });
+}
+
+function clearCache(datasetId) {
+  return new Promise(function(resolve) {
+    $fh.sync.clearCache(datasetId, function() {
+      return resolve('cleared');
     });
   });
 }
