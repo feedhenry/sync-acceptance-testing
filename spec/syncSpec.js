@@ -25,7 +25,7 @@ describe('Sync', function() {
   afterAll(function() {
     return removeDataset(datasetId)();
   });
-
+/*
   it('should manage a dataset', function() {
     $fh.sync.manage(datasetId);
     return waitForSyncEvent('sync_complete')();
@@ -275,7 +275,9 @@ describe('Sync', function() {
       expect(err).toBeNull();
     });
   });
+  */
 
+  /*
   it('should not stop remote updates using forceSync while sync not active', function() {
     // `local_update_applied` might be sent before `doCreate` finishes.
     $fh.sync.notify(function(event) {
@@ -302,7 +304,9 @@ describe('Sync', function() {
       expect(err).toBeNull();
     });
   });
+ */
 
+/*
   it('should sync after client goes offline', function() {
     $fh.sync.notify(function(event) {
       if (event.code === 'offline_update') {
@@ -394,6 +398,43 @@ describe('Sync', function() {
       expect(err).toBeNull();
     });
   });
+  */
+
+  it('should handle crashed server after immediate response', function() {
+    return manage(datasetId, { sync_frequency: 2 })
+    .then(waitForSyncEvent('sync_started'))
+    .then(setServerStatus({ crashed: true }))
+    .then(getPending(datasetId))
+    .then(function verifyPendingRecordCrashed(pending) {
+      expect(pending).toEqual({});
+    })
+    .then(doCreate(datasetId, testData))
+    .then(function(record) {
+      // Wait twice to ensure record was included in pending at the time.
+      return waitForSyncEvent('sync_failed')()
+      .then(waitForSyncEvent('sync_failed'))
+      .then(getPending(datasetId))
+      .then(function verifyPendingRecordCrashed(pending) {
+        expect(pending[record.hash].inFlight).toBe(true);
+        expect(pending[record.hash].crashed).toBe(true);
+      })
+      .then(setServerStatus({ crashed: false }))
+      .then(waitForSyncEvent('remote_update_applied'))
+      .then(function verifyCorrectRecordApplied(event) {
+        // A record has been applied, check that its our record.
+        const recordUid = $fh.sync.getUID(record.hash);
+        expect(event.uid).toEqual(recordUid);
+      })
+      .then(getPending(datasetId))
+      .then(function verifyNoPending(pending) {
+        expect(pending).toEqual({});
+      });
+    })
+    .catch(function(err) {
+      expect(err).toBeNull();
+    });
+  });
+
 });
 
 function offline() {
