@@ -25,7 +25,7 @@ describe('Sync', function() {
   afterAll(function() {
     return removeDataset(datasetId)();
   });
-/*
+
   it('should manage a dataset', function() {
     $fh.sync.manage(datasetId);
     return waitForSyncEvent('sync_complete')();
@@ -263,21 +263,19 @@ describe('Sync', function() {
     .then(doCreate(datasetId, testData))
     .then(function(record) {
       // Wait time to ensure `remote_update_applied` is called after online.
-      return waitForSyncEvent('sync_complete')()
-      .then(startSync(datasetId))
+      return startSync(datasetId)()
       .then(waitForSyncEvent('remote_update_applied'))
       .then(function verifyCorrectRecord(event) {
         const recordUid = $fh.sync.getUID(record.hash);
         expect(event.uid).toEqual(recordUid);
       });
     })
+    .then(removeDataset(datasetId))
     .catch(function(err) {
       expect(err).toBeNull();
     });
   });
-  */
 
-  /*
   it('should not stop remote updates using forceSync while sync not active', function() {
     // `local_update_applied` might be sent before `doCreate` finishes.
     $fh.sync.notify(function(event) {
@@ -290,23 +288,23 @@ describe('Sync', function() {
     return manage(datasetId)
     .then(stopSync(datasetId))
     .then(doCreate(datasetId, testData))
-    .then(function(record) {
-      // Wait time to ensure `remote_update_applied` is called after online.
-      return waitForSyncEvent('sync_complete')()
+    .then(function(inflightRecord) {
+      return forceSync(datasetId)()
+      .then(waitForSyncEvent('sync_complete'))
+      // doing two sync as the server can not respond early with no updates.
       .then(forceSync(datasetId))
       .then(waitForSyncEvent('remote_update_applied'))
       .then(function verifyCorrectRecord(event) {
-        const recordUid = $fh.sync.getUID(record.hash);
-        expect(event.uid).toEqual(recordUid);
+        expect(event.uid).toEqual(inflightRecord.uid);
       });
     })
+    .then(startSync(datasetId))
+    .then(removeDataset(datasetId))
     .catch(function(err) {
       expect(err).toBeNull();
     });
   });
- */
 
-/*
   it('should sync after client goes offline', function() {
     $fh.sync.notify(function(event) {
       if (event.code === 'offline_update') {
@@ -398,7 +396,6 @@ describe('Sync', function() {
       expect(err).toBeNull();
     });
   });
-  */
 
   it('should handle crashed server after immediate response', function() {
     return manage(datasetId, { sync_frequency: 2 })
