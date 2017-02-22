@@ -27,8 +27,8 @@
     "space-before-function-paren": ["error", "never"],
     "keyword-spacing": ["error"],
     "curly": ["error", "all"],
-    "no-undef": "warn",
-    "no-unused-vars": "warn"
+    "no-undef": "off",
+    "no-unused-vars": "off"
   },
   "globals": {
     "$fh": true
