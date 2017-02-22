@@ -37,6 +37,7 @@ module.exports = function(grunt) {
             './node_modules/jasmine-promises/dist/jasmine-promises.js'
           ],
           template: require('./tasks/template.js'),
+          helpers: ['spec/helper.js'],
           keepRunner: true,
           summary: true
         }
