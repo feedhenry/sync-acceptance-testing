@@ -4,14 +4,8 @@ const updateData = { test: 'something else' };
 
 describe('Sync', function() {
 
-  beforeAll(function(done) {
-    $fh.cloud({
-      path: '/datasets',
-      data: {
-        name: 'specDataset',
-        options: { syncFrequency: 1 }
-      }
-    }, done, done.fail);
+  beforeAll(function() {
+    return initialiseDataset(datasetId, { syncFrequency: 1 });
   });
 
   beforeEach(function() {
@@ -347,7 +341,9 @@ describe('Sync', function() {
         expect(pending[record.hash].crashed).toBe(true);
       })
       .then(setServerStatus({ crashed: false }))
-      .then(waitForSyncEvent('remote_update_applied'))
+      .then(waitForSyncEvent('remote_update_applied', function(event) {
+        return event.message.hash === record.hash;
+      }))
       .then(function verifyCorrectRecordApplied(event) {
         // A record has been applied, check that its our record.
         const recordUid = $fh.sync.getUID(record.hash);
@@ -432,6 +428,32 @@ describe('Sync', function() {
     });
   });
 
+  it('should have record inFlight forever', function() {
+    const mockResponseBody = { create: {}, update: {}, delete: {}};
+
+    return manage(datasetId, { sync_frequency: 2 })
+    .then(setServerStatus({ forcedResponse: mockResponseBody }))
+    .then(doCreate(datasetId, testData))
+    .then(function(record) {
+      return waitForSyncEvent('sync_complete')()
+      .then(waitForSyncEvent('sync_complete'))
+      .then(setServerStatus({ forcedResponse: null }))
+      .then(getPending(datasetId))
+      .then(function verifyPendingRecordCrashed(pending) {
+        expect(pending[record.hash].inFlight).toBe(true);
+      })
+      .then(waitForSyncEvent('sync_complete'))
+      .then(waitForSyncEvent('sync_complete'))
+      .then(waitForSyncEvent('sync_complete'))
+      .then(getPending(datasetId))
+      .then(function verifyPendingRecordCrashed(pending) {
+        expect(pending[record.hash].inFlight).toBe(true);
+      });
+    })
+    .catch(function(err) {
+      expect(err).toBeNull();
+    });
+  });
 });
 
 function offline() {
@@ -641,11 +663,13 @@ function stopSync(dataset) {
  *
  * @param {string} expectedEvent - The name of the event to wait for.
  */
-function waitForSyncEvent(expectedEvent) {
+function waitForSyncEvent(expectedEvent, validator) {
   return function() {
+    const eventValidator = validator || noop;
+
     return new Promise(function(resolve) {
       $fh.sync.notify(function(event) {
-        if (event.code === expectedEvent) {
+        if (event.code === expectedEvent && eventValidator(event)) {
           expect(event.code).toEqual(expectedEvent); // keep jasmine happy with at least 1 expectation
           resolve(event);
         }
@@ -689,3 +713,25 @@ function searchObject(obj, test) {
   }
 }
 
+function initialiseDataset(dataset, options) {
+  return function() {
+    return new Promise(function(resolve, reject) {
+      $fh.cloud({
+        path: '/datasets',
+        data: {
+          name: dataset,
+          options: options
+        }
+      }, resolve, reject);
+    });
+  };
+}
+
+/**
+ * A blank operation, in place of lodash's _.noop.
+ *
+ * @returns {Function} - The noop function again.
+ */
+function noop() {
+  return noop;
+}
