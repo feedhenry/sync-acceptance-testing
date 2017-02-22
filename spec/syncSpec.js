@@ -4,14 +4,8 @@ const updateData = { test: 'something else' };
 
 describe('Sync', function() {
 
-  beforeAll(function(done) {
-    $fh.cloud({
-      path: '/datasets',
-      data: {
-        name: 'specDataset',
-        options: { syncFrequency: 1 }
-      }
-    }, done, done.fail);
+  beforeAll(function() {
+    return initialiseDataset(datasetId, { syncFrequency: 1 });
   });
 
   beforeEach(function() {
@@ -263,14 +257,14 @@ describe('Sync', function() {
     .then(doCreate(datasetId, testData))
     .then(function(record) {
       // Wait time to ensure `remote_update_applied` is called after online.
-      return waitForSyncEvent('sync_complete')()
-      .then(startSync(datasetId))
+      return startSync(datasetId)()
       .then(waitForSyncEvent('remote_update_applied'))
       .then(function verifyCorrectRecord(event) {
         const recordUid = $fh.sync.getUID(record.hash);
         expect(event.uid).toEqual(recordUid);
       });
     })
+    .then(removeDataset(datasetId))
     .catch(function(err) {
       expect(err).toBeNull();
     });
@@ -288,16 +282,18 @@ describe('Sync', function() {
     return manage(datasetId)
     .then(stopSync(datasetId))
     .then(doCreate(datasetId, testData))
-    .then(function(record) {
-      // Wait time to ensure `remote_update_applied` is called after online.
-      return waitForSyncEvent('sync_complete')()
+    .then(function(inflightRecord) {
+      return forceSync(datasetId)()
+      .then(waitForSyncEvent('sync_complete'))
+      // doing two sync as the server can not respond early with no updates.
       .then(forceSync(datasetId))
       .then(waitForSyncEvent('remote_update_applied'))
       .then(function verifyCorrectRecord(event) {
-        const recordUid = $fh.sync.getUID(record.hash);
-        expect(event.uid).toEqual(recordUid);
+        expect(event.uid).toEqual(inflightRecord.uid);
       });
     })
+    .then(startSync(datasetId))
+    .then(removeDataset(datasetId))
     .catch(function(err) {
       expect(err).toBeNull();
     });
@@ -345,7 +341,9 @@ describe('Sync', function() {
         expect(pending[record.hash].crashed).toBe(true);
       })
       .then(setServerStatus({ crashed: false }))
-      .then(waitForSyncEvent('remote_update_applied'))
+      .then(waitForSyncEvent('remote_update_applied', function(event) {
+        return event.message.hash === record.hash;
+      }))
       .then(function verifyCorrectRecordApplied(event) {
         // A record has been applied, check that its our record.
         const recordUid = $fh.sync.getUID(record.hash);
@@ -388,6 +386,68 @@ describe('Sync', function() {
       .then(function verifyUidIsUpdated(event) {
         const recordUid = $fh.sync.getUID(record.hash);
         expect(event.uid).toEqual(recordUid);
+      });
+    })
+    .catch(function(err) {
+      expect(err).toBeNull();
+    });
+  });
+
+  it('should handle crashed server after immediate response', function() {
+    return manage(datasetId, { sync_frequency: 2 })
+    .then(waitForSyncEvent('sync_started'))
+    .then(setServerStatus({ crashed: true }))
+    .then(getPending(datasetId))
+    .then(function verifyPendingRecordCrashed(pending) {
+      expect(pending).toEqual({});
+    })
+    .then(doCreate(datasetId, testData))
+    .then(function(record) {
+      // Wait twice to ensure record was included in pending at the time.
+      return waitForSyncEvent('sync_failed')()
+      .then(waitForSyncEvent('sync_failed'))
+      .then(getPending(datasetId))
+      .then(function verifyPendingRecordCrashed(pending) {
+        expect(pending[record.hash].inFlight).toBe(true);
+        expect(pending[record.hash].crashed).toBe(true);
+      })
+      .then(setServerStatus({ crashed: false }))
+      .then(waitForSyncEvent('remote_update_applied'))
+      .then(function verifyCorrectRecordApplied(event) {
+        // A record has been applied, check that its our record.
+        const recordUid = $fh.sync.getUID(record.hash);
+        expect(event.uid).toEqual(recordUid);
+      })
+      .then(getPending(datasetId))
+      .then(function verifyNoPending(pending) {
+        expect(pending).toEqual({});
+      });
+    })
+    .catch(function(err) {
+      expect(err).toBeNull();
+    });
+  });
+
+  it('should have record inFlight forever', function() {
+    const mockResponseBody = { create: {}, update: {}, delete: {}};
+
+    return manage(datasetId, { sync_frequency: 2 })
+    .then(setServerStatus({ forcedResponse: mockResponseBody }))
+    .then(doCreate(datasetId, testData))
+    .then(function(record) {
+      return waitForSyncEvent('sync_complete')()
+      .then(waitForSyncEvent('sync_complete'))
+      .then(setServerStatus({ forcedResponse: null }))
+      .then(getPending(datasetId))
+      .then(function verifyPendingRecordCrashed(pending) {
+        expect(pending[record.hash].inFlight).toBe(true);
+      })
+      .then(waitForSyncEvent('sync_complete'))
+      .then(waitForSyncEvent('sync_complete'))
+      .then(waitForSyncEvent('sync_complete'))
+      .then(getPending(datasetId))
+      .then(function verifyPendingRecordCrashed(pending) {
+        expect(pending[record.hash].inFlight).toBe(true);
       });
     })
     .catch(function(err) {
@@ -603,11 +663,13 @@ function stopSync(dataset) {
  *
  * @param {string} expectedEvent - The name of the event to wait for.
  */
-function waitForSyncEvent(expectedEvent) {
+function waitForSyncEvent(expectedEvent, validator) {
   return function() {
+    const eventValidator = validator || noop;
+
     return new Promise(function(resolve) {
       $fh.sync.notify(function(event) {
-        if (event.code === expectedEvent) {
+        if (event.code === expectedEvent && eventValidator(event)) {
           expect(event.code).toEqual(expectedEvent); // keep jasmine happy with at least 1 expectation
           resolve(event);
         }
@@ -651,3 +713,25 @@ function searchObject(obj, test) {
   }
 }
 
+function initialiseDataset(dataset, options) {
+  return function() {
+    return new Promise(function(resolve, reject) {
+      $fh.cloud({
+        path: '/datasets',
+        data: {
+          name: dataset,
+          options: options
+        }
+      }, resolve, reject);
+    });
+  };
+}
+
+/**
+ * A blank operation, in place of lodash's _.noop.
+ *
+ * @returns {Function} - The noop function again.
+ */
+function noop() {
+  return noop;
+}

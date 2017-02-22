@@ -9,7 +9,8 @@ const app = express();
 
 // Used to check whether the server should respond.
 const serverStatus = {
-  crashed: false
+  crashed: false,
+  forcedResponse: null
 };
 
 // Enable CORS for all requests
@@ -20,8 +21,11 @@ app.use(bodyParser.json());
 
 // Check if the server is currently set to crash for all requests.
 app.use(function crashIfNeeded(req, res, next) {
-  if (req.originalUrl.indexOf('mbaas/sync') !== -1 && serverStatus.crashed) {
+  const isSyncRoute = req.originalUrl.indexOf('mbaas/sync') !== -1;
+  if (isSyncRoute && serverStatus.crashed) {
     return res.status(403).end();
+  } else if (isSyncRoute && serverStatus.forcedResponse) {
+    return res.json(serverStatus.forcedResponse).status(200);
   } else {
     next();
   }
@@ -153,6 +157,10 @@ function createDataset(req, res) {
 function updateStatus(req, res) {
   if (req.body.status.hasOwnProperty('crashed')) {
     serverStatus.crashed = req.body.status.crashed;
+  }
+
+  if (req.body.status.hasOwnProperty('forcedResponse')) {
+    serverStatus.forcedResponse = req.body.status.forcedResponse;
   }
 
   res.json({ data: serverStatus }).status(200);
