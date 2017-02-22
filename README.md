@@ -20,3 +20,11 @@ This file is [browserified](http://browserify.org/) into main.js which is then i
 in `index.html` which is the Jasmine Spec Runner. The client runs on port 9002.
 
 The server runs on port 8001, and is just a plain application.js file.
+
+### Running individual test specs
+By default all test are run but this can be filtered using the [--filter](https://github.com/gruntjs/grunt-contrib-jasmine#filtering-specs) option.  
+
+For example, to only run the tests in a specific spec file:
+
+    $ npm t -- --filter=syncCrudSpec.js
+

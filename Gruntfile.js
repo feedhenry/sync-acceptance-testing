@@ -31,7 +31,14 @@ module.exports = function(grunt) {
         options: {
           host: 'http://localhost:9002',
           outfile: 'index.html?url=http://localhost:8001',
-          spec: 'spec/*/**Spec.js'
+          specs: 'spec/*Spec.js',
+          vendor: [
+            './node_modules/babel-polyfill/dist/polyfill.js',
+            './node_modules/jasmine-promises/dist/jasmine-promises.js'
+          ],
+          template: require('./tasks/template.js'),
+          keepRunner: true,
+          summary: true
         }
       }
     },
