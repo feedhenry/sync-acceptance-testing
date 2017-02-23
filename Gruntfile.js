@@ -32,8 +32,10 @@ module.exports = function(grunt) {
           host: 'http://localhost:9002',
           outfile: 'index.html?url=http://localhost:8001',
           specs: 'spec/*Spec.js',
+          polyfills: [
+            './node_modules/babel-polyfill/dist/polyfill.js'
+          ],
           vendor: [
-            './node_modules/babel-polyfill/dist/polyfill.js',
             './node_modules/jasmine-promises/dist/jasmine-promises.js'
           ],
           template: require('./tasks/template.js'),
