@@ -30,7 +30,7 @@ module.exports = function(grunt) {
         src: 'main.js',
         options: {
           host: 'http://localhost:9002',
-          outfile: 'index.html?url=http://localhost:8001',
+          outfile: 'index.html?url=http://localhost:8001&throwFailures=true',
           specs: 'spec/*Spec.js',
           polyfills: [
             './node_modules/babel-polyfill/dist/polyfill.js'
