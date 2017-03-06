@@ -170,6 +170,35 @@ function waitForSyncEvent(expectedEvent) {
 }
 
 /**
+ * Verifies the given events are not seen/notified for the specific number of milliseconds
+ *
+ * @param {string[]} events event names to verify do not occur
+ * @param {number} timeout time to wait before the verification is complete
+ */
+function verifyAbsenceOfEvents(events, timeout) {
+  return function() {
+    return new Promise(function(resolve, reject) {
+      // resolve if the specified amount of time has passed,
+      // and prevent rejection being called by removing our notification listener
+      var resolveTimeout = setTimeout(function() {
+        $fh.sync.notify(function() {});
+        resolve();
+      }, timeout);
+
+      // reject if any of the specified events are seen, and clear the resolve timeout to
+      // prevent resolution
+      $fh.sync.notify(function(event) {
+        if (events.indexOf(event.code) > -1) {
+          clearTimeout(resolveTimeout);
+          $fh.sync.notify(function() {});
+          return reject('Event was seen when it shouldn\'t have been (' + event.code + ')');
+        }
+      });
+    });
+  };
+}
+
+/**
  * Set the server into or out of a crashed state with a custom response status.
  *
  * @param {Object} status - The status object.

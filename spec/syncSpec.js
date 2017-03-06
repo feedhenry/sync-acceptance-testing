@@ -5,20 +5,22 @@ const updateData = { test: 'something else' };
 describe('Sync', function() {
 
   beforeAll(function(done) {
+    localStorage.clear();
     $fh.cloud({
       path: '/datasets',
       data: {
         name: 'specDataset',
-        options: { syncFrequency: 1 }
+        options: { syncFrequency: 0.5 }
       }
     }, done, done.fail);
   });
 
   beforeEach(function() {
-    $fh.sync.init({ sync_frequency: 1, storage_strategy: 'dom' , crashed_count_wait: 1});
+    $fh.sync.init({ sync_frequency: 0.5, storage_strategy: 'dom' , crashed_count_wait: 1});
   });
 
   afterEach(function(done) {
+    localStorage.clear();
     $fh.sync.stopSync(datasetId, done, done.fail);
   });
 
@@ -80,13 +82,17 @@ describe('Sync', function() {
     .then(doCreate(datasetId, testData))
     .then(function(record) {
       // Wait time to ensure `remote_update_applied` is called after online.
-      return waitForSyncEvent('sync_complete')()
+      return verifyAbsenceOfEvents(['sync_complete', 'remote_update_applied'], 2000)()
       .then(startSync(datasetId))
+      .then(waitForSyncEvent('sync_started'))
       .then(waitForSyncEvent('remote_update_applied'))
       .then(function verifyCorrectRecord(event) {
         const recordUid = $fh.sync.getUID(record.hash);
         expect(event.uid).toEqual(recordUid);
-      });
+      })
+      // wait for sync_complete to ensure the sync loop finishes before moving onto other tests
+      // potentially affecting them
+      .then(waitForSyncEvent('sync_complete'));
     })
     .catch(function(err) {
       expect(err).toBeNull();
@@ -107,13 +113,17 @@ describe('Sync', function() {
     .then(doCreate(datasetId, testData))
     .then(function(record) {
       // Wait time to ensure `remote_update_applied` is called after online.
-      return waitForSyncEvent('sync_complete')()
+      return verifyAbsenceOfEvents(['sync_complete', 'remote_update_applied'], 2000)()
       .then(forceSync(datasetId))
+      .then(waitForSyncEvent('sync_started'))
       .then(waitForSyncEvent('remote_update_applied'))
       .then(function verifyCorrectRecord(event) {
         const recordUid = $fh.sync.getUID(record.hash);
         expect(event.uid).toEqual(recordUid);
-      });
+      })
+      // wait for sync_complete to ensure the sync loop finishes before moving onto other tests
+      // potentially affecting them
+      .then(waitForSyncEvent('sync_complete'));
     })
     .catch(function(err) {
       expect(err).toBeNull();
@@ -150,7 +160,7 @@ describe('Sync', function() {
 
   it('should handle crashed records', function() {
     return setServerStatus({ crashed: true })()
-    .then(manage(datasetId, { sync_frequency: 2 }))
+    .then(manage(datasetId))
     .then(doCreate(datasetId, testData))
     .then(function(record) {
       // Wait twice to ensure record was included in pending at the time.

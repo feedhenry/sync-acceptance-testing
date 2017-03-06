@@ -1,25 +1,47 @@
 const datasetId = 'specDataset';
+const datasetOneId = 'specDatasetOne';
+const datasetTwoId = 'specDatasetTwo';
 const testData = { test: 'text' };
 const updateData = { test: 'something else' };
 
 describe('Sync Create/Update/Delete', function() {
 
   beforeAll(function(done) {
+    localStorage.clear();
     $fh.cloud({
       path: '/datasets',
       data: {
         name: 'specDataset',
-        options: { syncFrequency: 1 }
+        options: { syncFrequency: 0.5 }
       }
     }, done, done.fail);
   });
 
   beforeEach(function() {
-    $fh.sync.init({ sync_frequency: 1, storage_strategy: 'dom' , crashed_count_wait: 1});
+    $fh.sync.init({ sync_frequency: 0.5, storage_strategy: 'dom' , crashed_count_wait: 1});
   });
 
   afterEach(function(done) {
-    $fh.sync.stopSync(datasetId, done, done.fail);
+    var datasets = [datasetId, datasetOneId, datasetTwoId];
+    var datasetsStopped = 0;
+
+    function datasetStopped() {
+      datasetsStopped++;
+      if (datasetsStopped === datasets.length) {
+        localStorage.clear();
+        return done();
+      }
+    }
+
+    datasets.forEach(function(dataset) {
+      $fh.sync.stopSync(dataset, function() {
+        datasetStopped();
+      }, function() {
+        console.info('Problem stopping sync for dataset ' + dataset + '. This can be ignored if the dataset was not "managed" in the test');
+        datasetStopped();
+      });
+    });
+
   });
 
   afterAll(function() {
@@ -167,8 +189,6 @@ describe('Sync Create/Update/Delete', function() {
   });
 
   it('should manage multiple datasets', function() {
-    const datasetOneId = 'specDatasetOne';
-    const datasetTwoId = 'specDatasetTwo';
 
     const recordOne = { test: 'recordOne' };
     const recordTwo = { test: 'recordTwo' };
