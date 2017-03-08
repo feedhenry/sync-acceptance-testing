@@ -16,10 +16,18 @@ function setOnline(online) {
 }
 
 function manage(dataset, options) {
-  return new Promise(function(resolve) {
-    $fh.sync.manage(dataset, options, {}, {}, function() {
-      resolve();
-    });
+  return new Promise(function(resolve, reject) {
+    $fh.cloud({
+      path: '/datasets',
+      data: {
+        name: dataset,
+        options: { syncFrequency: 0.5 }
+      }
+    }, function() {
+      $fh.sync.manage(dataset, options, {}, {}, function() {
+        resolve();
+      });
+    }, reject);
   });
 }
 
@@ -66,12 +74,6 @@ function listCollisions(datasetId) {
   };
 }
 
-function removeCollision(collision) {
-  return new Promise(function(resolve, reject) {
-    $fh.sync.removeCollision(datasetId, collision.hash, resolve, reject);
-  });
-}
-
 function getPending(dataset) {
   return function() {
     return new Promise(function(resolve) {
@@ -88,7 +90,6 @@ function updateRecord(dataset, uid, record) {
 
     const updatePath = '/datasets/' + dataset + '/records/' + uid;
     const recordData = { data: record };
-
     $fh.cloud({
       path: updatePath,
       data: recordData,
@@ -152,15 +153,15 @@ function stopSync(dataset) {
 }
 
 /**
- * Wait for a specific notification to be made from the client SDK.
+ * Wait for a specific notification to be made from the client SDK for a specific dataset
  *
  * @param {string} expectedEvent - The name of the event to wait for.
  */
-function waitForSyncEvent(expectedEvent) {
+function waitForSyncEvent(expectedEvent, datasetId) {
   return function() {
     return new Promise(function(resolve) {
       $fh.sync.notify(function(event) {
-        if (event.code === expectedEvent) {
+        if (event.dataset_id === datasetId && event.code === expectedEvent) {
           expect(event.code).toEqual(expectedEvent); // keep jasmine happy with at least 1 expectation
           resolve(event);
         }
@@ -171,11 +172,12 @@ function waitForSyncEvent(expectedEvent) {
 
 /**
  * Verifies the given events are not seen/notified for the specific number of milliseconds
+ * and for a specific dataset
  *
  * @param {string[]} events event names to verify do not occur
  * @param {number} timeout time to wait before the verification is complete
  */
-function verifyAbsenceOfEvents(events, timeout) {
+function verifyAbsenceOfEvents(events, datasetId, timeout) {
   return function() {
     return new Promise(function(resolve, reject) {
       // resolve if the specified amount of time has passed,
@@ -188,7 +190,7 @@ function verifyAbsenceOfEvents(events, timeout) {
       // reject if any of the specified events are seen, and clear the resolve timeout to
       // prevent resolution
       $fh.sync.notify(function(event) {
-        if (events.indexOf(event.code) > -1) {
+        if (event.dataset_id === datasetId && events.indexOf(event.code) > -1) {
           clearTimeout(resolveTimeout);
           $fh.sync.notify(function() {});
           return reject('Event was seen when it shouldn\'t have been (' + event.code + ')');

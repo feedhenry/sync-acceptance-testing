@@ -1,39 +1,60 @@
-const datasetId = 'specDataset';
 const testData = { test: 'text' };
 const updateData = { test: 'something else' };
+var currentDatasetIds = [];
 
 describe('Sync', function() {
 
-  beforeAll(function(done) {
+  beforeAll(function() {
     localStorage.clear();
-    $fh.cloud({
-      path: '/datasets',
-      data: {
-        name: 'specDataset',
-        options: { syncFrequency: 0.5 }
-      }
-    }, done, done.fail);
   });
 
   beforeEach(function() {
+    currentDatasetIds = [];
     $fh.sync.init({ sync_frequency: 0.5, storage_strategy: 'dom' , crashed_count_wait: 1});
   });
 
   afterEach(function(done) {
     localStorage.clear();
-    $fh.sync.stopSync(datasetId, done, done.fail);
+
+    if (currentDatasetIds.length === 0) {
+      return done();
+    }
+
+    var datasetsStopped = 0;
+
+    function datasetStopped() {
+      datasetsStopped++;
+      if (datasetsStopped === currentDatasetIds.length) {
+        localStorage.clear();
+        return done();
+      }
+    }
+
+    // Stop any managed datasets
+    currentDatasetIds.forEach(function(dataset) {
+      $fh.sync.stopSync(dataset, function() {
+        datasetStopped();
+      }, function() {
+        // ignore any errors
+        datasetStopped();
+      });
+    });
   });
 
   afterAll(function() {
-    return removeDataset(datasetId)();
+    currentDatasetIds.forEach(function(datasetId) {
+      removeDataset(datasetId)();
+    });
   });
 
   it('should cause a collision', function() {
+    const datasetId = 'shoudCauseCollision';
+    currentDatasetIds.push(datasetId);
     const collisionData = { test: 'cause a collision' };
 
     return manage(datasetId)
     .then(doCreate(datasetId, testData))
-    .then(waitForSyncEvent('remote_update_applied'))
+    .then(waitForSyncEvent('remote_update_applied', datasetId))
     .then(function verifyUpdateApplied(event) {
       // We need to store this for updating in MongoDB in the next step.
       expect(event.message.uid).not.toBeNull();
@@ -41,7 +62,7 @@ describe('Sync', function() {
       var recordId = event.message.uid;
       return updateRecord(datasetId, recordId, collisionData)
       .then(doUpdate(datasetId, recordId , updateData))
-      .then(waitForSyncEvent('collision_detected'))
+      .then(waitForSyncEvent('collision_detected', datasetId))
       .then(function verifyCorrectCollision(event) {
         // Assert that the collision is the one we caused.
         expect(event.message.uid).toEqual(recordId);
@@ -56,83 +77,82 @@ describe('Sync', function() {
         expect(invokedCollision).not.toBeNull();
         return invokedCollision;
       })
-      .then(removeCollision)
+      .then(function removeCollision(collision) {
+        return new Promise(function(resolve, reject) {
+          $fh.sync.removeCollision(datasetId, collision.hash, resolve, reject);
+        });
+      })
       .then(listCollisions(datasetId))
       .then(function verifyNoCollisions(collisions) {
         // There should be no collisions left. We deleted the only one.
         expect(collisions).toEqual({});
       })
       .catch(function(err) {
+        console.error(err, err.stack);
         expect(err).toBeNull();
       });
     });
   });
 
   it('should stop remote updates on stopSync', function() {
-    // `local_update_applied` might be sent before `doCreate` finishes.
-    $fh.sync.notify(function(event) {
-      if (event.code === 'local_update_applied') {
-        expect(event.dataset_id).toEqual(datasetId);
-        expect(event.message).toMatch(/(load|create)/);
-      }
-    });
+    const datasetId = 'shoudStopRemoteUpdatesOnStopSync';
+    currentDatasetIds.push(datasetId);
 
     return manage(datasetId)
     .then(stopSync(datasetId))
     .then(doCreate(datasetId, testData))
     .then(function(record) {
       // Wait time to ensure `remote_update_applied` is called after online.
-      return verifyAbsenceOfEvents(['sync_complete', 'remote_update_applied'], 2000)()
+      return verifyAbsenceOfEvents(['sync_complete', 'remote_update_applied'], datasetId, 2000)()
       .then(startSync(datasetId))
-      .then(waitForSyncEvent('sync_started'))
-      .then(waitForSyncEvent('remote_update_applied'))
+      .then(waitForSyncEvent('sync_started', datasetId))
+      .then(waitForSyncEvent('remote_update_applied', datasetId))
       .then(function verifyCorrectRecord(event) {
         const recordUid = $fh.sync.getUID(record.hash);
         expect(event.uid).toEqual(recordUid);
       })
       // wait for sync_complete to ensure the sync loop finishes before moving onto other tests
       // potentially affecting them
-      .then(waitForSyncEvent('sync_complete'));
+      .then(waitForSyncEvent('sync_complete', datasetId));
     })
     .catch(function(err) {
+      console.error(err, err.stack);
       expect(err).toBeNull();
     });
   });
 
   it('should not stop remote updates using forceSync while sync not active', function() {
-    // `local_update_applied` might be sent before `doCreate` finishes.
-    $fh.sync.notify(function(event) {
-      if (event.code === 'local_update_applied') {
-        expect(event.dataset_id).toEqual(datasetId);
-        expect(event.message).toMatch(/(load|create)/);
-      }
-    });
+    const datasetId = 'shoudNotStopRemoteUpdatesUsingForcesyncWhileNotActive';
+    currentDatasetIds.push(datasetId);
 
     return manage(datasetId)
     .then(stopSync(datasetId))
     .then(doCreate(datasetId, testData))
     .then(function(record) {
       // Wait time to ensure `remote_update_applied` is called after online.
-      return verifyAbsenceOfEvents(['sync_complete', 'remote_update_applied'], 2000)()
+      return verifyAbsenceOfEvents(['sync_complete', 'remote_update_applied'], datasetId, 2000)()
       .then(forceSync(datasetId))
-      .then(waitForSyncEvent('sync_started'))
-      .then(waitForSyncEvent('remote_update_applied'))
+      .then(waitForSyncEvent('sync_started', datasetId))
+      .then(waitForSyncEvent('remote_update_applied', datasetId))
       .then(function verifyCorrectRecord(event) {
         const recordUid = $fh.sync.getUID(record.hash);
         expect(event.uid).toEqual(recordUid);
       })
       // wait for sync_complete to ensure the sync loop finishes before moving onto other tests
       // potentially affecting them
-      .then(waitForSyncEvent('sync_complete'));
+      .then(waitForSyncEvent('sync_complete', datasetId));
     })
     .catch(function(err) {
+      console.error(err, err.stack);
       expect(err).toBeNull();
     });
   });
 
   it('should sync after client goes offline', function() {
+    const datasetId = 'shoudSyncAfterClientGoesOffline';
+    currentDatasetIds.push(datasetId);
     $fh.sync.notify(function(event) {
-      if (event.code === 'offline_update') {
+      if (event.dataset_id === datasetId && event.code === 'offline_update') {
         expect(event.dataset_id).toEqual(datasetId);
         expect(event.message).toEqual('update');
       }
@@ -151,28 +171,31 @@ describe('Sync', function() {
         .then(doUpdate(datasetId, uid, updateData))
         .then(online())
         .then(doRead(datasetId, uid))
-        .then(waitForSyncEvent('remote_update_applied'));
+        .then(waitForSyncEvent('remote_update_applied', datasetId));
     })
     .catch(function(err) {
+      console.error(err, err.stack);
       expect(err).toBeNull();
     });
   });
 
   it('should handle crashed records', function() {
+    const datasetId = 'shoudHandleCrashedRecords';
+    currentDatasetIds.push(datasetId);
     return setServerStatus({ crashed: true })()
     .then(manage(datasetId))
     .then(doCreate(datasetId, testData))
     .then(function(record) {
       // Wait twice to ensure record was included in pending at the time.
-      return waitForSyncEvent('sync_failed')()
-      .then(waitForSyncEvent('sync_failed'))
+      return waitForSyncEvent('sync_failed', datasetId)()
+      .then(waitForSyncEvent('sync_failed', datasetId))
       .then(getPending(datasetId))
       .then(function verifyPendingRecordCrashed(pending) {
         expect(pending[record.hash].inFlight).toBe(true);
         expect(pending[record.hash].crashed).toBe(true);
       })
       .then(setServerStatus({ crashed: false }))
-      .then(waitForSyncEvent('remote_update_applied'))
+      .then(waitForSyncEvent('remote_update_applied', datasetId))
       .then(function verifyCorrectRecordApplied(event) {
         // A record has been applied, check that its our record.
         const recordUid = $fh.sync.getUID(record.hash);
@@ -184,11 +207,14 @@ describe('Sync', function() {
       });
     })
     .catch(function(err) {
+      console.error(err, err.stack);
       expect(err).toBeNull();
     });
   });
 
   it('should remove dataset when clearCache is called', function() {
+    const datasetId = 'shoudRemoveDatasetWhenClearCacheIsCalled';
+    currentDatasetIds.push(datasetId);
     return manage(datasetId)
       .then(doCreate(datasetId, testData))
       .then(function withResult(res) {
@@ -203,6 +229,8 @@ describe('Sync', function() {
   });
 
   it('should update uid after remote update', function() {
+    const datasetId = 'shoudUpdateUIDAfterRemoteUpdate';
+    currentDatasetIds.push(datasetId);
     return manage(datasetId)
     .then(doCreate(datasetId, testData))
     .then(function(record) {
@@ -211,13 +239,14 @@ describe('Sync', function() {
         expect(record.hash).toEqual(recordUid);
         resolve();
       })
-      .then(waitForSyncEvent('remote_update_applied'))
+      .then(waitForSyncEvent('remote_update_applied', datasetId))
       .then(function verifyUidIsUpdated(event) {
         const recordUid = $fh.sync.getUID(record.hash);
         expect(event.uid).toEqual(recordUid);
       });
     })
     .catch(function(err) {
+      console.error(err, err.stack);
       expect(err).toBeNull();
     });
   });
