@@ -52,7 +52,7 @@ describe('Sync', function() {
     currentDatasetIds.push(datasetId);
     const collisionData = { test: 'cause a collision' };
 
-    return manage(datasetId)
+    return manage(datasetId)()
     .then(doCreate(datasetId, testData))
     .then(waitForSyncEvent('remote_update_applied', datasetId))
     .then(function verifyUpdateApplied(event) {
@@ -98,12 +98,12 @@ describe('Sync', function() {
     const datasetId = 'shoudStopRemoteUpdatesOnStopSync';
     currentDatasetIds.push(datasetId);
 
-    return manage(datasetId)
+    return manage(datasetId)()
     .then(stopSync(datasetId))
     .then(doCreate(datasetId, testData))
     .then(function(record) {
       // Wait time to ensure `remote_update_applied` is called after online.
-      return verifyAbsenceOfEvents(['sync_complete', 'remote_update_applied'], datasetId, 2000)()
+      return verifyAbsenceOfEvents(['sync_complete', 'remote_update_applied'], datasetId, 1500)()
       .then(startSync(datasetId))
       .then(waitForSyncEvent('sync_started', datasetId))
       .then(waitForSyncEvent('remote_update_applied', datasetId))
@@ -125,22 +125,38 @@ describe('Sync', function() {
     const datasetId = 'shoudNotStopRemoteUpdatesUsingForcesyncWhileNotActive';
     currentDatasetIds.push(datasetId);
 
-    return manage(datasetId)
+    return manage(datasetId)()
     .then(stopSync(datasetId))
     .then(doCreate(datasetId, testData))
     .then(function(record) {
+      const recordUid = $fh.sync.getUID(record.hash);
       // Wait time to ensure `remote_update_applied` is called after online.
-      return verifyAbsenceOfEvents(['sync_complete', 'remote_update_applied'], datasetId, 2000)()
+      return verifyAbsenceOfEvents(['sync_complete', 'remote_update_applied'], datasetId, 1500)()
       .then(forceSync(datasetId))
-      .then(waitForSyncEvent('sync_started', datasetId))
+      .then(waitForSyncEvent('sync_complete', datasetId))
+      .then(function() {
+        return new Promise(function(resolve) {
+          // wait enough time for sync loop on client & sync server to process the update
+          setTimeout(resolve, 1500);
+        });
+      })
+      // TLDR: Do a second update & sync to ensure we get at least 1 remote_update_applied event
+      //
+      // To make this test work for <=6 & >6 fh-mbaas-api versions,
+      // we do another update that will trigger a remote_update_applied.
+      // In older code 2 events will trigger, 1 for create & 1 for update.
+      // This is OK as we just need 1 to continue.
+      // In newer code 1 event will trigger for create due to server doing deferred processing.
+      // The update event will happen at a later point, but we're not interested in it then.
+      .then(function updateRecord() {
+        return doUpdate(datasetId, recordUid, updateData);
+      })
+      .then(forceSync(datasetId)) // Do a second forceSync so we hear about our create/update
       .then(waitForSyncEvent('remote_update_applied', datasetId))
       .then(function verifyCorrectRecord(event) {
         const recordUid = $fh.sync.getUID(record.hash);
         expect(event.uid).toEqual(recordUid);
-      })
-      // wait for sync_complete to ensure the sync loop finishes before moving onto other tests
-      // potentially affecting them
-      .then(waitForSyncEvent('sync_complete', datasetId));
+      });
     })
     .catch(function(err) {
       console.error(err, err.stack);
@@ -158,7 +174,7 @@ describe('Sync', function() {
       }
     });
 
-    return manage(datasetId)
+    return manage(datasetId)()
     .then(doCreate(datasetId, testData))
     .then(function(res) {
       const uid = res.uid;
@@ -207,7 +223,6 @@ describe('Sync', function() {
       });
     })
     .catch(function(err) {
-      console.error(err, err.stack);
       expect(err).toBeNull();
     });
   });
@@ -215,7 +230,7 @@ describe('Sync', function() {
   it('should remove dataset when clearCache is called', function() {
     const datasetId = 'shoudRemoveDatasetWhenClearCacheIsCalled';
     currentDatasetIds.push(datasetId);
-    return manage(datasetId)
+    return manage(datasetId)()
       .then(doCreate(datasetId, testData))
       .then(function withResult(res) {
         const uid = res.uid;
@@ -231,7 +246,7 @@ describe('Sync', function() {
   it('should update uid after remote update', function() {
     const datasetId = 'shoudUpdateUIDAfterRemoteUpdate';
     currentDatasetIds.push(datasetId);
-    return manage(datasetId)
+    return manage(datasetId)()
     .then(doCreate(datasetId, testData))
     .then(function(record) {
       return new Promise(function verifyUidIsHash(resolve) {

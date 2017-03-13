@@ -5,7 +5,7 @@ var cloudServer;
 var clientServer;
 
 grunt.registerTask('startServers', function startServers() {
-  process.env.FH_USE_LOCAL_DB = true;
+  process.env.FH_MONGODB_CONN_URL="mongodb://test:test@localhost:27017/test";
   const done = this.async();
   cloudServer = require('./application.js').server;
   clientServer = connect().use(serveStatic(__dirname)).listen(9002, function() {

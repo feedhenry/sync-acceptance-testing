@@ -1,5 +1,5 @@
 language: node_js
-services: mongodb
+services: docker
 node_js:
   - '4.4.7'
 sudo: false

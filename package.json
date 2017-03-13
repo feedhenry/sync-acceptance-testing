@@ -4,6 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "pretest": "./scripts/pretest.sh",
+    "posttest": "./scripts/posttest.sh",
     "test": "browserify app.js > main.js && grunt -v"
   },
   "author": "",
@@ -17,7 +19,7 @@
     "cors": "^2.8.1",
     "express": "^4.14.1",
     "fh-js-sdk": "^2.18.2",
-    "fh-mbaas-api": "^6.1.5",
+    "fh-mbaas-api": "^6.1.6",
     "grunt": "^1.0.1",
     "grunt-contrib-jasmine": "^1.1.0",
     "serve-static": "^1.11.2"
