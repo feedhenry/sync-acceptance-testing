@@ -16,19 +16,21 @@ function setOnline(online) {
 }
 
 function manage(dataset, options) {
-  return new Promise(function(resolve, reject) {
-    $fh.cloud({
-      path: '/datasets',
-      data: {
-        name: dataset,
-        options: { syncFrequency: 0.5 }
-      }
-    }, function() {
-      $fh.sync.manage(dataset, options, {}, {}, function() {
-        resolve();
-      });
-    }, reject);
-  });
+  return function() {
+    return new Promise(function(resolve, reject) {
+      $fh.cloud({
+        path: '/datasets',
+        data: {
+          name: dataset,
+          options: { syncFrequency: 0.5 }
+        }
+      }, function() {
+        $fh.sync.manage(dataset, options, {}, {}, function() {
+          resolve();
+        });
+      }, reject);
+    });
+  };
 }
 
 function clearCache(datasetId) {

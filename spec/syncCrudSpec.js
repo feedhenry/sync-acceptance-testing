@@ -56,7 +56,7 @@ describe('Sync Create/Update/Delete', function() {
   it('should list', function() {
     const datasetId = 'shouldList';
     currentDatasetIds.push(datasetId);
-    return manage(datasetId)
+    return manage(datasetId)()
     .then(waitForSyncEvent('sync_started', datasetId))
     .then(function verifySyncStarted(event) {
       expect(event.dataset_id).toEqual(datasetId);
@@ -80,7 +80,7 @@ describe('Sync Create/Update/Delete', function() {
         expect(event.message).toMatch(/(load|create)/);
       }
     });
-    return manage(datasetId)
+    return manage(datasetId)()
     .then(doCreate(datasetId, testData))
     .then(function(res) {
       expect(res.action).toEqual('create');
@@ -97,7 +97,7 @@ describe('Sync Create/Update/Delete', function() {
   it('should read', function() {
     const datasetId = 'shoudRead';
     currentDatasetIds.push(datasetId);
-    return manage(datasetId)
+    return manage(datasetId)()
     .then(doCreate(datasetId, testData))
     .then(function withResult(res) {
       const uid = res.uid;
@@ -116,13 +116,12 @@ describe('Sync Create/Update/Delete', function() {
   it('should fail when reading unknown uid', function() {
     const datasetId = 'shouldFailUnknownUID';
     currentDatasetIds.push(datasetId);
-    return manage(datasetId)
+    return manage(datasetId)()
     .then(doCreate(datasetId, testData))
     .then(function withResult() {
       return doRead(datasetId, 'bogus_uid');
     })
     .catch(function verifyError(err) {
-      console.error(err, err.stack);
       expect(err).toEqual('unknown_uid');
     });
   });
@@ -130,7 +129,7 @@ describe('Sync Create/Update/Delete', function() {
   it('should update', function() {
     const datasetId = 'shouldUpdate';
     currentDatasetIds.push(datasetId);
-    return manage(datasetId)
+    return manage(datasetId)()
     .then(doCreate(datasetId, testData))
     .then(function withResult(res) {
       const uid = res.uid;
@@ -149,7 +148,7 @@ describe('Sync Create/Update/Delete', function() {
   it('should delete', function() {
     const datasetId = 'shoudDelete';
     currentDatasetIds.push(datasetId);
-    return manage(datasetId)
+    return manage(datasetId)()
       .then(doCreate(datasetId, testData))
       .then(function withResult(res) {
         const uid = res.uid;
@@ -165,7 +164,7 @@ describe('Sync Create/Update/Delete', function() {
     currentDatasetIds.push(datasetId);
     const recordToCreate = { test: 'create' };
 
-    return manage(datasetId)
+    return manage(datasetId)()
     .then(createRecord(datasetId, recordToCreate))
     .then(waitForSyncEvent('record_delta_received', datasetId))
     .then(function verifyDeltaStructure(event) {
@@ -188,7 +187,7 @@ describe('Sync Create/Update/Delete', function() {
     currentDatasetIds.push(datasetId);
     const updateData = { test: 'cause a client update' };
 
-    return manage(datasetId)
+    return manage(datasetId)()
     .then(doCreate(datasetId, testData))
     .then(waitForSyncEvent('remote_update_applied', datasetId))
     .then(function verifyUpdateApplied(event) {
@@ -221,7 +220,7 @@ describe('Sync Create/Update/Delete', function() {
     var recordOneHash;
     var recordTwoHash;
 
-    return manage(datasetOneId)
+    return manage(datasetOneId)()
     .then(manage(datasetTwoId))
     .then(doCreate(datasetOneId, recordOne))
     .then(waitForSyncEvent('remote_update_applied', datasetOneId))
@@ -258,7 +257,7 @@ describe('Sync Create/Update/Delete', function() {
   it('should update uid after remote update', function() {
     const datasetId = 'shoudUpdateUIDAfterRemoteUpdate';
     currentDatasetIds.push(datasetId);
-    return manage(datasetId)
+    return manage(datasetId)()
     .then(doCreate(datasetId, testData))
     .then(function(record) {
       return new Promise(function verifyUidIsHash(resolve) {
