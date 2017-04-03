@@ -60,7 +60,7 @@ describe('Sync', function() {
       expect(event.message.uid).not.toBeNull();
       // The UID of the record which should have a collision.
       var recordId = event.message.uid;
-      return updateRecord(datasetId, recordId, collisionData)
+      return updateRecord(datasetId, recordId, collisionData)()
       .then(doUpdate(datasetId, recordId , updateData))
       .then(waitForSyncEvent('collision_detected', datasetId))
       .then(function verifyCorrectCollision(event) {
@@ -86,6 +86,39 @@ describe('Sync', function() {
       .then(function verifyNoCollisions(collisions) {
         // There should be no collisions left. We deleted the only one.
         expect(collisions).toEqual({});
+      })
+      .catch(function(err) {
+        console.error(err, err.stack);
+        expect(err).toBeNull();
+      });
+    });
+  });
+
+  it('should cause a collision when coming online', function() {
+    const datasetId = 'shoudCauseCollisionOffline';
+    currentDatasetIds.push(datasetId);
+    const collisionData = { test: 'cause a collision' };
+
+    return manage(datasetId, { sync_frequency: 0.5 })()
+    .then(doCreate(datasetId, testData))
+    .then(waitForSyncEvent('remote_update_applied', datasetId))
+    .then(function verifyUpdateApplied(event) {
+      // We need to store this for updating in MongoDB in the next step.
+      expect(event.message.uid).not.toBeNull();
+      // The UID of the record which should have a collision.
+      const recordId = event.message.uid;
+      return offline()
+      .then(updateRecord(datasetId, recordId, collisionData))
+      .then(waitForSyncEvent('sync_failed', datasetId))
+      .then(doUpdate(datasetId, recordId , updateData))
+      .then(waitForSyncEvent('sync_failed', datasetId))
+      .then(online)
+      .then(waitForSyncEvent('record_delta_received', datasetId))
+      .then(doList(datasetId))
+      .then(function(records) {
+        const record = records[event.message.uid];
+        expect(record).toBeDefined();
+        expect(record.data.test).toEqual(collisionData.test);
       })
       .catch(function(err) {
         console.error(err, err.stack);
@@ -149,7 +182,7 @@ describe('Sync', function() {
       // In newer code 1 event will trigger for create due to server doing deferred processing.
       // The update event will happen at a later point, but we're not interested in it then.
       .then(function updateRecord() {
-        return doUpdate(datasetId, recordUid, updateData);
+        return doUpdate(datasetId, recordUid, updateData)();
       })
       .then(forceSync(datasetId)) // Do a second forceSync so we hear about our create/update
       .then(waitForSyncEvent('remote_update_applied', datasetId))
@@ -178,14 +211,14 @@ describe('Sync', function() {
     .then(doCreate(datasetId, testData))
     .then(function(res) {
       const uid = res.uid;
-      return doUpdate(datasetId, uid, updateData)
+      return doUpdate(datasetId, uid, updateData)()
         .then(doRead(datasetId, uid))
         .then(function verifyUpdate(data) {
           expect(data).toEqual(updateData);
         })
-        .then(offline())
+        .then(offline)
         .then(doUpdate(datasetId, uid, updateData))
-        .then(online())
+        .then(online)
         .then(doRead(datasetId, uid))
         .then(waitForSyncEvent('remote_update_applied', datasetId));
     })
@@ -243,6 +276,7 @@ describe('Sync', function() {
       });
   });
 
+
   it('should update uid after remote update', function() {
     const datasetId = 'shoudUpdateUIDAfterRemoteUpdate';
     currentDatasetIds.push(datasetId);
@@ -266,4 +300,3 @@ describe('Sync', function() {
     });
   });
 });
-
