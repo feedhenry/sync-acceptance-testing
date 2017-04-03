@@ -133,7 +133,7 @@ describe('Sync Create/Update/Delete', function() {
     .then(doCreate(datasetId, testData))
     .then(function withResult(res) {
       const uid = res.uid;
-      return doUpdate(datasetId, uid, updateData)
+      return doUpdate(datasetId, uid, updateData)()
       .then(doRead(datasetId, uid))
       .then(function verifyUpdate(data) {
         expect(data).toEqual(updateData);
@@ -192,7 +192,7 @@ describe('Sync Create/Update/Delete', function() {
     .then(waitForSyncEvent('remote_update_applied', datasetId))
     .then(function verifyUpdateApplied(event) {
       const uid = event.uid;
-      return updateRecord(datasetId, uid, updateData)
+      return updateRecord(datasetId, uid, updateData)()
       .then(waitForSyncEvent('record_delta_received', datasetId))
       .then(function verifyDeltaStructure(event) {
         expect(event.message).toEqual('update');

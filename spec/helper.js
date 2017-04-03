@@ -54,13 +54,15 @@ function doCreate(dataset, data) {
 }
 
 function doUpdate(datasetId, uid, updateData) {
-  return new Promise(function(resolve, reject) {
-    $fh.sync.doUpdate(datasetId, uid, updateData, function() {
-      resolve(updateData);
-    }, function(err) {
-      reject(err);
+  return function() {
+    return new Promise(function(resolve, reject) {
+      $fh.sync.doUpdate(datasetId, uid, updateData, function() {
+        resolve(updateData);
+      }, function(err) {
+        reject(err);
+      });
     });
-  });
+  };
 }
 
 function listCollisions(datasetId) {
@@ -88,18 +90,20 @@ function getPending(dataset) {
  * Update the value of a record. Used to cause a collision.
  */
 function updateRecord(dataset, uid, record) {
-  return new Promise(function(resolve, reject) {
+  return function() {
+    return new Promise(function(resolve, reject) {
 
-    const updatePath = '/datasets/' + dataset + '/records/' + uid;
-    const recordData = { data: record };
-    $fh.cloud({
-      path: updatePath,
-      data: recordData,
-      method: 'put'
-    }, function() {
-      resolve({ uid: uid });
-    }, reject);
-  });
+      const updatePath = '/datasets/' + dataset + '/records/' + uid;
+      const recordData = { data: record };
+      $fh.cloud({
+        path: updatePath,
+        data: recordData,
+        method: 'put'
+      }, function() {
+        resolve({ uid: uid });
+      }, reject);
+    });
+  };
 }
 
 /**
