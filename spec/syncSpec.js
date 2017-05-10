@@ -275,28 +275,4 @@ describe('Sync', function() {
           .then(manage(datasetId))); // this is to keep afterEach from failing
       });
   });
-
-
-  it('should update uid after remote update', function() {
-    const datasetId = 'shoudUpdateUIDAfterRemoteUpdate';
-    currentDatasetIds.push(datasetId);
-    return manage(datasetId)()
-    .then(doCreate(datasetId, testData))
-    .then(function(record) {
-      return new Promise(function verifyUidIsHash(resolve) {
-        const recordUid = $fh.sync.getUID(record.hash);
-        expect(record.hash).toEqual(recordUid);
-        resolve();
-      })
-      .then(waitForSyncEvent('remote_update_applied', datasetId))
-      .then(function verifyUidIsUpdated(event) {
-        const recordUid = $fh.sync.getUID(record.hash);
-        expect(event.uid).toEqual(recordUid);
-      });
-    })
-    .catch(function(err) {
-      console.error(err, err.stack);
-      expect(err).toBeNull();
-    });
-  });
 });
